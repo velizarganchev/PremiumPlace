@@ -18,6 +18,7 @@ builder.Services.AddAutoMapper(o =>
 {
     o.CreateMap<Place, PlaceCreateDTO>().ReverseMap();
     o.CreateMap<Place, PlaceUpdateDTO>().ReverseMap();
+    o.CreateMap<Place, PlaceDTO>().ReverseMap();
 });
 builder.Services.AddScoped<IPlaceService, PlaceService>();
 

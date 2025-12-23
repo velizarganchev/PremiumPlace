@@ -1,10 +1,8 @@
 ﻿using AutoMapper;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using PremiumPlace_API.Data;
-using PremiumPlace_API.Models;
 using PremiumPlace_API.Models.DTO;
+using PremiumPlace_API.Services;
 using PremiumPlace_API.Services.Places;
 
 namespace PremiumPlace_API.Controllers
@@ -20,28 +18,24 @@ namespace PremiumPlace_API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Place>>> GetPlaces()
+        public async Task<ActionResult<ServiceResponse<List<PlaceDTO>>>> GetPlaces()
         {
             var response = await _placeService.GetAllPlaces();
-            if (response.Data == null)
+            if (response.Success == false)
             {
-                return NotFound();
+                return NotFound(response);
             }
             return Ok(response);
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<Place>> GetPlaceById(int id)
+        public async Task<ActionResult<PlaceDTO>> GetPlaceById(int id)
         {
             try {
-                if (id <= 0)
-                {
-                    return BadRequest();
-                }
                 var response = await _placeService.GetPlaceById(id);
-                if (response.Data == null)
+                if (response.Success == false)
                 {
-                    return NotFound();
+                    return NotFound(response);
                 }
                 return Ok(response);
             }
@@ -51,19 +45,18 @@ namespace PremiumPlace_API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<PlaceCreateDTO>> CreatePlace(PlaceCreateDTO placeDTO)
+        public async Task<ActionResult<PlaceDTO>> CreatePlace(PlaceCreateDTO placeDTO)
         {
             try
             {
-                if (placeDTO == null)
-                {
-                    return BadRequest("Place data is required!");
-                }
-
                 var response = await _placeService.CreatePlace(placeDTO);
 
-                return CreatedAtAction(nameof(CreatePlace), placeDTO);
+                if (response.Success == false)
+                {
+                    return BadRequest(response);
+                }
 
+                return CreatedAtAction(nameof(CreatePlace), response);
             }
             catch (Exception ex) 
             {
@@ -76,20 +69,15 @@ namespace PremiumPlace_API.Controllers
         {
             try
             {
-                if (placeDTO == null)
-                {
-                    return BadRequest("Place data is required!");
-                }
+                var response = await _placeService.UpdatePlace(id, placeDTO);
 
-                if (id != placeDTO.Id)
+                if (response.Success == false)
                 {
-                    return BadRequest($"Id's do not match!");
+                    return BadRequest(response);
                 }
-
-                var response = await _placeService.UpdatePlace(id ,placeDTO);
-                if (response.Data == null)
+                if (response.Success == false && response.Data != null)
                 {
-                    return NotFound($"Place with Id = {id} not found!");
+                    return Conflict(response);
                 }
 
                 return Ok(response);
@@ -102,18 +90,14 @@ namespace PremiumPlace_API.Controllers
 
 
         [HttpDelete("{id:int}")]
-        public async Task<ActionResult<Place>> DeletePlace(int id)
+        public async Task<ActionResult<PlaceDTO>> DeletePlace(int id)
         {
             try
             {
-                if (id <= 0)
-                {
-                    return BadRequest();
-                }
                 var response = await _placeService.DeletePlace(id);
                 if (response.Success == false)
                 {
-                    return NotFound();
+                    return NotFound(response);
                 }
                 return NoContent();
             }
