@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using PremiumPlace_API.Controllers.Extensions;
 using PremiumPlace_API.Data;
 using PremiumPlace_API.Models;
 using PremiumPlace_API.Models.DTO.Auth;
+using PremiumPlace_API.Services.Extensions;
 
 namespace PremiumPlace_API.Services.Auth
 {
@@ -26,17 +28,126 @@ namespace PremiumPlace_API.Services.Auth
         }
         public async Task<ServiceResponse<AuthResultDTO>> LoginAsync(LoginRequestDTO dto, string ip, string? userAgent)
         {
-            throw new NotImplementedException();
+            var key = dto.UsernameOrEmail.Trim().ToLower();
+            var user = await _db.Users
+                .Include(u => u.RefreshTokens)
+                .FirstOrDefaultAsync(u => u.Email == key || u.Username == key);
+
+            if (user == null || !_passwordService.Verify(user, user.PasswordHash, dto.Password))
+                {
+                return ServiceResponseFactory.Fail<AuthResultDTO>(ServiceErrorType.Unauthorized,
+                    "Invalid credentials.");
+            }
+
+            var refreshPlain = _tokenService.CreateRefreshToken();
+            var refreshHash = _tokenService.HashToken(refreshPlain);
+
+            user.RefreshTokens.Add(new RefreshToken
+            {
+                TokenHash = refreshHash,
+                ExpiresAtUtc = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenDays),
+                CreatedByIp = ip
+            });
+
+            CleanupOldRefreshTokens(user);
+
+            await _db.SaveChangesAsync();
+
+            var access = _tokenService.CreateAccessToken(user);
+
+            return ServiceResponseFactory.Ok(new AuthResultDTO
+            {
+                User = MyAuthMapper.ToAuthUserDto(user),
+                AccessToken = access,
+                RefreshToken = refreshPlain
+            });
         }
 
         public async Task<ServiceResponse<bool>> LogoutAsync(string refreshToken, string ip)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                return ServiceResponseFactory.Ok(true);
+
+            var hash = _tokenService.HashToken(refreshToken);
+
+            var user = await _db.Users
+                .Include(u => u.RefreshTokens)
+                .FirstOrDefaultAsync(u => u.RefreshTokens.Any(rt => rt.TokenHash == hash));
+
+            if (user is null)
+                return ServiceResponseFactory.Ok(true);
+
+            var token = user.RefreshTokens.Single(rt => rt.TokenHash == hash);
+
+            if (token.RevokedAtUtc is null)
+            {
+                token.RevokedAtUtc = DateTime.UtcNow;
+                token.RevokedByIp = ip;
+                await _db.SaveChangesAsync();
+            }
+
+            return ServiceResponseFactory.Ok(true);
         }
 
         public async Task<ServiceResponse<AuthResultDTO>> RefreshAsync(string refreshToken, string ip, string? userAgent)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                return ServiceResponseFactory.Fail<AuthResultDTO>(
+                    ServiceErrorType.Unauthorized,
+                    "Missing refresh token.");
+            }
+
+            var hash = _tokenService.HashToken(refreshToken);
+
+            var user = await _db.Users
+                .Include(u => u.RefreshTokens)
+                .FirstOrDefaultAsync(u => u.RefreshTokens.Any(rt => rt.TokenHash == hash));
+
+            if (user is null)
+            {
+                return ServiceResponseFactory.Fail<AuthResultDTO>(
+                    ServiceErrorType.Unauthorized,
+                    "Invalid refresh token.");
+            }
+
+            var current = user.RefreshTokens.Single(rt => rt.TokenHash == hash);
+
+            if (!current.IsActive)
+            {
+                return ServiceResponseFactory.Fail<AuthResultDTO>(
+                    ServiceErrorType.Unauthorized,
+                    "Refresh token is not active.");
+            }
+
+            // rotation: revoke old, add new
+            current.RevokedAtUtc = DateTime.UtcNow;
+            current.RevokedByIp = ip;
+
+            var newPlain = _tokenService.CreateRefreshToken();
+            var newHash = _tokenService.HashToken(newPlain);
+
+            current.ReplacedByTokenHash = newHash;
+
+            user.RefreshTokens.Add(new RefreshToken
+            {
+                TokenHash = newHash,
+                ExpiresAtUtc = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenDays),
+                CreatedByIp = ip
+            });
+
+            CleanupOldRefreshTokens(user);
+
+            await _db.SaveChangesAsync();
+
+            var access = _tokenService.CreateAccessToken(user);
+
+            return ServiceResponseFactory.Ok(new AuthResultDTO
+            {
+                User = MyAuthMapper.ToAuthUserDto(user),
+                AccessToken = access,
+                RefreshToken = newPlain
+            }); 
         }
 
         public async Task<ServiceResponse<AuthResultDTO>> RegisterAsync(RegisterRequestDTO dto, string ip, string? userAgent)
@@ -48,7 +159,7 @@ namespace PremiumPlace_API.Services.Auth
                 .AnyAsync(u => u.Email == email || u.Username == username);
 
             if (existingUserByEmail) {
-                return Fail<AuthResultDTO>(
+                return ServiceResponseFactory.Fail<AuthResultDTO>(
                     ServiceErrorType.Conflict,
                     "User with same email or username already exists.");
             }
@@ -76,36 +187,17 @@ namespace PremiumPlace_API.Services.Auth
 
             var accessToken = _tokenService.CreateAccessToken(user);
 
-            return Ok(new AuthResultDTO
+            return ServiceResponseFactory.Ok(new AuthResultDTO
             {
-                User = MapUser(user),
+                User = MyAuthMapper.ToAuthUserDto(user),
                 AccessToken = accessToken,
                 RefreshToken = refreshPlain
-            });
+            }); 
         }
-
-        private static AuthUserDTO MapUser(User user) => new()
+        private static void CleanupOldRefreshTokens(User user)
         {
-            Id = user.Id,
-            Email = user.Email,
-            Username = user.Username,
-            Role = user.Role.ToString(),
-        };
-        private static ServiceResponse<T> Ok<T>(T data) => new() { Data = data, Success = true };
-        private static ServiceResponse<T> Fail<T>(
-           ServiceErrorType type,
-           string message,
-           string? error = null)
-        {
-            return new ServiceResponse<T>
-            {
-                Success = false,
-                ErrorType = type,
-                Message = message,
-                Error = error
-            };
+            var threshold = DateTime.UtcNow.AddDays(-10);
+            user.RefreshTokens.RemoveAll(rt => !rt.IsActive && rt.ExpiresAtUtc < threshold);
         }
-
-
     }
 }
