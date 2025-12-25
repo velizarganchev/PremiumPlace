@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="../PremiumPlace_Web/PremiumPlace_Web.csproj" Id="de06120f-d8cb-435a-b788-ee6593b2a86c" />
   <Project Path="PremiumPlace_API.csproj" />
 </Solution>

@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using PremiumPlace_API.Controllers.Extensions;
 using PremiumPlace_API.Data;
 using PremiumPlace_API.Models;
 using PremiumPlace_API.Models.DTO.Auth;
