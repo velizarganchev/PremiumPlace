@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using PremiumPlace.DTO.Auth;
+using PremiumPlace_Web.Application.Abstractions.Api;
 using PremiumPlace_Web.Infrastructure.Http;
 using System.Text.Json;
 
@@ -8,10 +9,10 @@ namespace PremiumPlace_Web.Controllers
     [Route("auth")]
     public class AuthController : Controller
     {
-        private readonly PremiumPlaceApiClient _api;
-        public AuthController(PremiumPlaceApiClient api)
+        private readonly IAuthApi _auth;
+        public AuthController(IAuthApi auth)
         {
-            _api = api;
+            _auth = auth;
         }
 
         [HttpGet("login")]
@@ -21,54 +22,45 @@ namespace PremiumPlace_Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(LoginRequestDTO dto, CancellationToken ct)
         {
-            // 1) Client-side validation (DTO Required)
             if (!ModelState.IsValid)
             {
                 TempData["error"] = "Please fill in all required fields.";
                 return View(dto);
             }
 
-            var apiResp = await _api.PostJsonAsync("/api/auth/login", dto, ct);
-
-            // Forward Set-Cookie (pp_access, pp_refresh) from API -> browser (MVC origin)
-            SetCookieForwarding.CopySetCookieHeaders(apiResp, Response);
-
-            if (apiResp.IsSuccessStatusCode)
+            var result = await _auth.LoginAsync(dto, ct);
+            if (result.Success)
                 return RedirectToAction("Index", "Home");
 
-            // 2) API error -> show in your bootstrap alert
-            var apiMessage = await TryExtractMessageAsync(apiResp, ct)
-                            ?? "Invalid credentials. Please try again.";
-
-            TempData["error"] = apiMessage;
-
+            TempData["error"] = result.Message ?? "Invalid credentials. Please try again.";
             return View(dto);
         }
 
-        [HttpGet]
+        [HttpGet("register")]
         public IActionResult Register() => View();
 
-
-        private static async Task<string?> TryExtractMessageAsync(HttpResponseMessage resp, CancellationToken ct)
+        [HttpPost("register")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Register(RegisterRequestDTO dto, CancellationToken ct)
         {
-            try
+            if (!ModelState.IsValid)
             {
-                var json = await resp.Content.ReadAsStringAsync(ct);
-                if (string.IsNullOrWhiteSpace(json)) return null;
-
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("message", out var msg) && msg.ValueKind == JsonValueKind.String)
-                    return msg.GetString();
-
-                if (doc.RootElement.ValueKind == JsonValueKind.String)
-                    return doc.RootElement.GetString();
-
-                return null;
+                TempData["error"] = "Please fill in all required fields.";
+                return View(dto);
             }
-            catch
-            {
-                return null;
-            }
+            var result = await _auth.RegisterAsync(dto, ct);
+            if (result.Success)
+                return RedirectToAction("Index", "Home");
+            TempData["error"] = result.Message ?? "Registration failed. Please try again.";
+            return View(dto);
+        }
+
+        [HttpPost("logout")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Logout(CancellationToken ct)
+        {
+            await _auth.LogoutAsync(ct);
+            return RedirectToAction("Login");
         }
     }
 }

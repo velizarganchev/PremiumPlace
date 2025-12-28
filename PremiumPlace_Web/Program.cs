@@ -1,3 +1,4 @@
+using PremiumPlace_Web.Application.Abstractions.Api;
 using PremiumPlace_Web.Infrastructure.Http;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,10 +12,6 @@ builder.Services.AddAuthorization();
 // Needed so handlers can read browser cookies and write Set-Cookie back.
 builder.Services.AddHttpContextAccessor();
 
-// Register handlers
-builder.Services.AddTransient<CookieForwardHandler>();
-builder.Services.AddTransient<RefreshOn401Handler>();
-
 // Register typed API client with handler pipeline
 builder.Services.AddHttpClient<PremiumPlaceApiClient>(client =>
 {
@@ -23,9 +20,9 @@ builder.Services.AddHttpClient<PremiumPlaceApiClient>(client =>
 
     // Optional timeouts
     client.Timeout = TimeSpan.FromSeconds(30);
-})
-.AddHttpMessageHandler<CookieForwardHandler>()
-.AddHttpMessageHandler<RefreshOn401Handler>();
+});
+
+builder.Services.AddScoped<IAuthApi, AuthApi>();
 
 var app = builder.Build();
 
