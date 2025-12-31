@@ -8,5 +8,6 @@
         public int SquareFeet { get; init; }
         public int Occupancy { get; init; }
         public string? ImageUrl { get; init; }
+        public List<int> AmenitieIds { get; set; } = [];
     }
 }

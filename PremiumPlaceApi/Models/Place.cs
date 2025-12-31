@@ -4,6 +4,11 @@ namespace PremiumPlace_API.Models
 {
     public class Place
     {
+        public Place()
+        {
+            Amenities = new HashSet<Amenitie>();
+        }
+
         [Key]
         public int Id { get; set; }
 
@@ -27,5 +32,7 @@ namespace PremiumPlace_API.Models
         public DateTime CreatedDate { get; set; }
 
         public DateTime? UpdatedDate { get; set; }
+
+        public virtual ICollection<Amenitie> Amenities { get; set; }
     }
 }

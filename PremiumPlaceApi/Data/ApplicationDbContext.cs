@@ -10,6 +10,7 @@ namespace PremiumPlace_API.Data
         }
 
         public DbSet<Place> Places { get; set; }
+        public DbSet<Amenitie> Amenities { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
 
