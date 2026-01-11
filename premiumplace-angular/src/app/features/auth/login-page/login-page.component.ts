@@ -49,7 +49,7 @@ export class LoginPageComponent {
     ).subscribe({
       next: (user) => {
         if (user) {
-          this.router.navigateByUrl('/places');
+          this.router.navigateByUrl('/');
         } else {
           this.error.set('Unauthorized');
         }

@@ -1,0 +1,34 @@
+<app-hero></app-hero>
+<section class="section section--center">
+    <h2 class="section__title">We provide best quality service</h2>
+    <p class="section__text">
+        Finding comfortable and convenient housing can be hard. We simplify the process with a clean search experience
+        and
+        reliable listings.
+    </p>
+
+    <button mat-stroked-button>About us</button>
+</section>
+
+<section class="section">
+    <div class="cards">
+        @for (c of cards; track c.title) {
+        <mat-card class="card" (click)="$event.preventDefault()">
+            <div class="card__img" [style.backgroundImage]="'url(' + c.imageUrl + ')'"></div>
+
+            <mat-card-content class="card__content">
+                <h3 class="card__title">{{ c.title }}</h3>
+                <p class="card__subtitle">{{ c.subtitle }}</p>
+
+                @if (c.priceText) {
+                <div class="card__price">{{ c.priceText }}</div>
+                }
+
+                @if (c.meta) {
+                <div class="card__meta">{{ c.meta }}</div>
+                }
+            </mat-card-content>
+        </mat-card>
+        }
+    </div>
+</section>

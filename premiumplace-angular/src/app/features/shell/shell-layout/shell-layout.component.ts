@@ -1,12 +1,11 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatButtonModule } from '@angular/material/button';
+import { NavbarComponent } from "../../../shared/ui/navbar/navbar.component";
+import { FooterComponent } from "../../../shared/ui/footer/footer.component";
 @Component({
   selector: 'app-shell-layout',
   standalone: true,
-  imports: [RouterOutlet, MatToolbarModule, MatButtonModule],
+  imports: [RouterOutlet, NavbarComponent, FooterComponent],
   templateUrl: './shell-layout.component.html',
   styleUrl: './shell-layout.component.scss'
 })
