@@ -1,7 +1,7 @@
 import { inject, Injectable, signal, computed } from '@angular/core';
 import { tap, map } from 'rxjs';
 import { PlacesApi } from './places.api';
-import { mapPlace } from './places.mapper';
+import { mapPlace, mapPlaceToCard } from './places.mapper';
 import type { Place } from './places.models';
 
 @Injectable({ providedIn: 'root' })
@@ -28,4 +28,9 @@ export class PlacesService {
             tap(() => this._loading.set(false))
         );
     }
+
+    cards = computed(() =>
+        this.items().map(mapPlaceToCard)
+    );
+
 }

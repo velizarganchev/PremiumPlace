@@ -15,5 +15,5 @@ import { RouterLink } from '@angular/router';
   styleUrl: './cards-grid.component.scss'
 })
 export class CardsGridComponent {
-  cards = input.required<CardItem[]>()
+  cards = input.required<CardItem[]>();
 }

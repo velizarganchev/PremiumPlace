@@ -2,7 +2,7 @@
     <div class="cards">
         @for (c of cards(); track c.id) {
         <mat-card class="card">
-            <div class="card__img" [style.backgroundImage]="'url(' + c.imageUrl + ')'"></div>
+            <img class="card__img" [src]="c.imageUrl" alt="" />
 
             <mat-card-content class="card__content">
                 <h3 class="card__title">{{ c.title }}</h3>
@@ -14,7 +14,7 @@
 
             @if (c.href) {
             <mat-card-actions align="end">
-                <a mat-button [routerLink]="c.href">View</a>
+                <a mat-button [routerLink]="c.href" [attr.aria-label]="'View ' + c.title">View</a>
             </mat-card-actions>
             }
         </mat-card>
