@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { API_PREFIX } from '../http/api.constants';
-import type { AuthResponse, LoginRequest, RegisterRequest, User } from './auth.models';
+import type { AuthResponse, LoginRequest, RegisterRequest } from './auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthApi {
@@ -24,6 +24,6 @@ export class AuthApi {
     }
 
     me() {
-        return this.http.get<User>(`${API_PREFIX}/Auth/me`);
+        return this.http.get<AuthResponse>(`${API_PREFIX}/Auth/me`);
     }
 }

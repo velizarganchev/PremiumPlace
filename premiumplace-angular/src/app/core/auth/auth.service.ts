@@ -1,7 +1,7 @@
 import { inject, Injectable, signal, computed } from '@angular/core';
-import { catchError, map, of, switchMap, tap } from 'rxjs';
+import { catchError, map, of, tap } from 'rxjs';
 import { AuthApi } from './auth.api';
-import type { LoginRequest, RegisterRequest, User } from './auth.models';
+import type { LoginRequest, RegisterRequest, User, UserRole } from './auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -11,13 +11,15 @@ export class AuthService {
     user = this._user.asReadonly();
 
     isLoggedIn = computed(() => this._user() !== null);
+    isAdmin = computed(() => this._user()?.role === 'Admin');
 
     // Load session from cookies
     loadMe() {
         return this.api.me().pipe(
-            tap((u) => this._user.set(u)),
+            map((response) => response.user),
+            tap((user) => this._user.set(user)),
             catchError(() => {
-                this._user.set(null);
+                this.clearSession();
                 return of(null);
             })
         );
@@ -25,14 +27,14 @@ export class AuthService {
 
     login(body: LoginRequest) {
         return this.api.login(body).pipe(
-            switchMap(() => this.loadMe()),
+            tap((response) => this._user.set(response.user)),
             map(() => void 0)
         );
     }
 
     register(body: RegisterRequest) {
         return this.api.register(body).pipe(
-            switchMap(() => this.loadMe()),
+            tap((response) => this._user.set(response.user)),
             map(() => void 0)
         );
     }
@@ -42,5 +44,13 @@ export class AuthService {
             tap(() => this._user.set(null)),
             map(() => void 0)
         );
+    }
+
+    clearSession() {
+        this._user.set(null);
+    }
+
+    hasRole(role: UserRole) {
+        return this._user()?.role === role;
     }
 }

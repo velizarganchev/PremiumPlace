@@ -50,8 +50,7 @@ export const refreshInterceptor: HttpInterceptorFn = (req, next) => {
                     isRefreshing = false;
                     refreshQueue = [];
 
-                    // hard fail -> clear state
-                    authService.logout().subscribe({ error: () => void 0 });
+                    authService.clearSession();
 
                     return throwError(() => err);
                 })

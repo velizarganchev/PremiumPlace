@@ -14,6 +14,7 @@ describe('PlaceGalleryComponent', () => {
     
     fixture = TestBed.createComponent(PlaceGalleryComponent);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('images', ['image-1.jpg', 'image-2.jpg']);
     fixture.detectChanges();
   });
 

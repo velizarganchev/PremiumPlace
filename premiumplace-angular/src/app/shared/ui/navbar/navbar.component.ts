@@ -17,6 +17,7 @@ export class NavbarComponent {
 
   readonly user = this.auth.user;
   readonly isLoggedIn = this.auth.isLoggedIn;
+  readonly isAdmin = this.auth.isAdmin;
 
   readonly username = computed(() => this.user()?.username ?? '');
 

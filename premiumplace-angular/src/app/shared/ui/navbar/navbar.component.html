@@ -1,10 +1,12 @@
 <mat-toolbar class="pp-toolbar">
-    <span>PremiumPlace</span>
+    <a mat-button routerLink="/">PremiumPlace</a>
     <span class="spacer"></span>
+    <a mat-button routerLink="/places">Places</a>
     @if (isLoggedIn()) {
-    <a mat-button routerLink="/my-bookings">My bookings</a>
-    <a mat-button routerLink="/profile">Profile</a>
-
+    @if (isAdmin()) {
+    <span class="admin-label">Admin</span>
+    }
+    <span>{{ username() }}</span>
     <button mat-button (click)="logout()">Logout</button>
     } @else {
     <a mat-button routerLink="/auth/login">Login</a>
