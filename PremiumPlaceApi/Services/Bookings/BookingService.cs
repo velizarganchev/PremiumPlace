@@ -112,7 +112,6 @@ namespace PremiumPlace_API.Services.Bookings
 
         // -----------------------------
         // 2) Confirm pending booking
-        // (demo flow: backend verifies paymentRef via external call later)
         // -----------------------------
         public async Task<ServiceResponse<ConfirmBookingResult>> ConfirmBookingAsync(int userId, ConfirmBookingRequest req)
         {

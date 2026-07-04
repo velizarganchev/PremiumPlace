@@ -1,7 +1,10 @@
 using PremiumPlace.DTO.Bookings;
+using Microsoft.Extensions.Options;
+using PremiumPlace_API.Infrastructure.Payments.PayPal;
 using PremiumPlace_API.Models;
 using PremiumPlace_API.Services;
 using PremiumPlace_API.Services.Bookings;
+using PremiumPlace_API.Services.PayPal;
 using PremiumPlace_API.Tests.Helpers;
 using Xunit;
 
@@ -61,13 +64,21 @@ public class BookingServiceTests : IDisposable
         db.SaveChanges();
     }
 
+    private static BookingService CreateService(
+        PremiumPlace_API.Data.ApplicationDbContext db,
+        IPayPalPaymentVerifier? payPalVerifier = null)
+        => new(
+            db,
+            payPalVerifier ?? new SuccessfulPayPalPaymentVerifier(),
+            Options.Create(new PayPalOptions { ExpectedCurrency = "EUR" }));
+
     // ───────────────────────── A ─────────────────────────
     [Fact]
     public async Task GetAvailability_PlaceIdZero_ReturnsFail()
     {
         // Arrange
         using var db = _factory.CreateContext();
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.GetAvailabilityAsync(
@@ -85,7 +96,7 @@ public class BookingServiceTests : IDisposable
     public async Task GetAvailability_ToBeforeOrEqualFrom_ReturnsFail()
     {
         using var db = _factory.CreateContext();
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         var result = await svc.GetAvailabilityAsync(
             PlaceId,
@@ -101,7 +112,7 @@ public class BookingServiceTests : IDisposable
     public async Task GetAvailability_NoOverlappingBookings_ReturnsEmptyBlockedList()
     {
         using var db = _factory.CreateContext();
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         var result = await svc.GetAvailabilityAsync(
             PlaceId,
@@ -118,7 +129,7 @@ public class BookingServiceTests : IDisposable
     public async Task CreateBooking_CheckoutBeforeCheckin_ReturnsFail()
     {
         using var db = _factory.CreateContext();
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         var req = new CreateBookingRequest
         {
@@ -138,7 +149,7 @@ public class BookingServiceTests : IDisposable
     public async Task CreateBooking_DatesFree_Succeeds()
     {
         using var db = _factory.CreateContext();
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         var req = new CreateBookingRequest
         {
@@ -177,7 +188,7 @@ public class BookingServiceTests : IDisposable
         });
         db.SaveChanges();
 
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         // Request overlapping: 2026-02-09 → 2026-02-11
         var req = new CreateBookingRequest
@@ -211,7 +222,7 @@ public class BookingServiceTests : IDisposable
         });
         db.SaveChanges();
 
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         // New booking starts exactly when existing ends → no overlap
         var req = new CreateBookingRequest
@@ -265,7 +276,7 @@ public class BookingServiceTests : IDisposable
         );
         db.SaveChanges();
 
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         var result = await svc.GetMyBookingsAsync(User1Id);
 
@@ -299,7 +310,7 @@ public class BookingServiceTests : IDisposable
         db.SaveChanges();
 
         var bookingId = booking.Id;
-        var svc = new BookingService(db);
+        var svc = CreateService(db);
 
         // First cancel
         var result1 = await svc.CancelBookingAsync(User1Id, bookingId);
@@ -316,8 +327,105 @@ public class BookingServiceTests : IDisposable
         Assert.Contains("already cancelled", result2.Message!, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ------------------------- J -------------------------
+    [Fact]
+    public async Task ConfirmBooking_PendingBooking_WithVerifiedPayment_ConfirmsAndStoresPaymentRef()
+    {
+        using var db = _factory.CreateContext();
+
+        var booking = new Booking
+        {
+            PlaceId = PlaceId,
+            UserId = User1Id,
+            CheckInDate = new DateOnly(2026, 8, 1),
+            CheckOutDate = new DateOnly(2026, 8, 4),
+            Status = BookingStatus.Pending,
+            CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            TotalAmount = 300m,
+            CurrencyCode = "EUR"
+        };
+        db.Bookings.Add(booking);
+        db.SaveChanges();
+
+        var svc = CreateService(db);
+
+        var result = await svc.ConfirmBookingAsync(User1Id, new ConfirmBookingRequest
+        {
+            BookingId = booking.Id,
+            PaymentReference = "PAYPAL-ORDER-1"
+        });
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+        Assert.Equal(BookingStatus.Confirmed.ToString(), result.Data.Status);
+
+        var persisted = await db.Bookings.FindAsync(booking.Id);
+        Assert.NotNull(persisted);
+        Assert.Equal(BookingStatus.Confirmed, persisted.Status);
+        Assert.Equal("PAYPAL-ORDER-1", persisted.PaymentRef);
+    }
+
+    // ------------------------- K -------------------------
+    [Fact]
+    public async Task ConfirmBooking_WhenPaymentVerificationFails_MarksBookingFailed()
+    {
+        using var db = _factory.CreateContext();
+
+        var booking = new Booking
+        {
+            PlaceId = PlaceId,
+            UserId = User1Id,
+            CheckInDate = new DateOnly(2026, 9, 1),
+            CheckOutDate = new DateOnly(2026, 9, 3),
+            Status = BookingStatus.Pending,
+            CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            TotalAmount = 200m,
+            CurrencyCode = "EUR"
+        };
+        db.Bookings.Add(booking);
+        db.SaveChanges();
+
+        var svc = CreateService(db, new FailingPayPalPaymentVerifier());
+
+        var result = await svc.ConfirmBookingAsync(User1Id, new ConfirmBookingRequest
+        {
+            BookingId = booking.Id,
+            PaymentReference = "PAYPAL-ORDER-2"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.ErrorType);
+
+        var persisted = await db.Bookings.FindAsync(booking.Id);
+        Assert.NotNull(persisted);
+        Assert.Equal(BookingStatus.Failed, persisted.Status);
+        Assert.Equal("PAYPAL-ORDER-2", persisted.PaymentRef);
+    }
+
     public void Dispose()
     {
         _factory.Dispose();
+    }
+
+    private sealed class SuccessfulPayPalPaymentVerifier : IPayPalPaymentVerifier
+    {
+        public Task VerifyOrThrowAsync(
+            string payPalOrderId,
+            decimal expectedAmount,
+            string expectedCurrency,
+            string idempotencyKey,
+            CancellationToken ct = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class FailingPayPalPaymentVerifier : IPayPalPaymentVerifier
+    {
+        public Task VerifyOrThrowAsync(
+            string payPalOrderId,
+            decimal expectedAmount,
+            string expectedCurrency,
+            string idempotencyKey,
+            CancellationToken ct = default)
+            => throw new InvalidOperationException("Payment rejected for test.");
     }
 }
