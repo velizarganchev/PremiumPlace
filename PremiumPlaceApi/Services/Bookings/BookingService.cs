@@ -14,6 +14,9 @@ namespace PremiumPlace_API.Services.Bookings
         private readonly PayPalOptions _payPalOptions;
         private readonly ILogger<BookingService> _logger;
 
+        // Pending bookings not confirmed within this window are considered expired.
+        public const int PendingTtlMinutes = 30;
+
         public BookingService(ApplicationDbContext db, IPayPalPaymentVerifier payPalVerifier,
         Microsoft.Extensions.Options.IOptions<PayPalOptions> payPalOptions,
         ILogger<BookingService> logger)
@@ -156,6 +159,19 @@ namespace PremiumPlace_API.Services.Bookings
             if (booking.Status != BookingStatus.Pending)
                 return Fail<ConfirmBookingResult>($"Booking cannot be confirmed from status '{booking.Status}'.", ServiceErrorType.Conflict);
 
+            // Reject confirmation of a reservation that sat pending past its TTL.
+            if (booking.CreatedAt < DateTime.UtcNow.AddMinutes(-PendingTtlMinutes))
+            {
+                booking.Status = BookingStatus.Expired;
+                await _db.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Booking confirm rejected (expired): BookingId={BookingId}, UserId={UserId}, CreatedAt={CreatedAt}",
+                    booking.Id, userId, booking.CreatedAt);
+
+                return Fail<ConfirmBookingResult>("Reservation has expired. Please start a new booking.", ServiceErrorType.Conflict);
+            }
+
             // Final overlap check (server truth) - protects against race conditions
             var hasOverlap = await _db.Bookings
                 .Where(b => b.PlaceId == booking.PlaceId && b.Status == BookingStatus.Confirmed)
@@ -273,6 +289,20 @@ namespace PremiumPlace_API.Services.Bookings
                 Success = true,
                 Message = "Booking cancelled successfully."
             };
+        }
+
+        public async Task<int> ExpireStalePendingsAsync()
+        {
+            var cutoff = DateTime.UtcNow.AddMinutes(-PendingTtlMinutes);
+
+            var count = await _db.Bookings
+                .Where(b => b.Status == BookingStatus.Pending && b.CreatedAt < cutoff)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.Status, BookingStatus.Expired));
+
+            if (count > 0)
+                _logger.LogInformation("Expired {Count} stale pending booking(s).", count);
+
+            return count;
         }
 
         // -----------------------------

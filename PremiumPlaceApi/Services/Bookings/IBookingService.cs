@@ -13,5 +13,8 @@ namespace PremiumPlace_API.Services.Bookings
         Task<ServiceResponse<List<MyBookingDTO>>> GetMyBookingsAsync(int userId);
 
         Task<ServiceResponse<object>> CancelBookingAsync(int userId, int bookingId);
+
+        /// <summary>Marks pending bookings older than the TTL as Expired. Returns the number affected.</summary>
+        Task<int> ExpireStalePendingsAsync();
     }
 }

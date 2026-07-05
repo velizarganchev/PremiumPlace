@@ -189,6 +189,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPlaceService, PlaceService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddHostedService<PendingBookingSweeper>();
 
 builder.Services.AddScoped<IPayPalAuthClient, PayPalAuthClient>();
 builder.Services.AddScoped<IPayPalOrdersClient, PayPalOrdersClient>();

@@ -342,7 +342,7 @@ public class BookingServiceTests : IDisposable
             CheckInDate = new DateOnly(2026, 8, 1),
             CheckOutDate = new DateOnly(2026, 8, 4),
             Status = BookingStatus.Pending,
-            CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            CreatedAt = DateTime.UtcNow,
             TotalAmount = 300m,
             CurrencyCode = "EUR"
         };
@@ -380,7 +380,7 @@ public class BookingServiceTests : IDisposable
             CheckInDate = new DateOnly(2026, 9, 1),
             CheckOutDate = new DateOnly(2026, 9, 3),
             Status = BookingStatus.Pending,
-            CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            CreatedAt = DateTime.UtcNow,
             TotalAmount = 200m,
             CurrencyCode = "EUR"
         };
@@ -402,6 +402,83 @@ public class BookingServiceTests : IDisposable
         Assert.NotNull(persisted);
         Assert.Equal(BookingStatus.Failed, persisted.Status);
         Assert.Equal("PAYPAL-ORDER-2", persisted.PaymentRef);
+    }
+
+    // ------------------------- L -------------------------
+    [Fact]
+    public async Task ConfirmBooking_ExpiredPending_ReturnsFailAndMarksExpired()
+    {
+        using var db = _factory.CreateContext();
+
+        var booking = new Booking
+        {
+            PlaceId = PlaceId,
+            UserId = User1Id,
+            CheckInDate = new DateOnly(2026, 10, 1),
+            CheckOutDate = new DateOnly(2026, 10, 3),
+            Status = BookingStatus.Pending,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-(BookingService.PendingTtlMinutes + 10)),
+            TotalAmount = 200m,
+            CurrencyCode = "EUR"
+        };
+        db.Bookings.Add(booking);
+        db.SaveChanges();
+
+        var svc = CreateService(db);
+
+        var result = await svc.ConfirmBookingAsync(User1Id, new ConfirmBookingRequest
+        {
+            BookingId = booking.Id,
+            PaymentReference = "PAYPAL-ORDER-EXP"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.ErrorType);
+
+        var persisted = await db.Bookings.FindAsync(booking.Id);
+        Assert.NotNull(persisted);
+        Assert.Equal(BookingStatus.Expired, persisted.Status);
+    }
+
+    // ------------------------- M -------------------------
+    [Fact]
+    public async Task ExpireStalePendings_MarksOnlyOldPendings()
+    {
+        using var db = _factory.CreateContext();
+
+        var stale = new Booking
+        {
+            PlaceId = PlaceId,
+            UserId = User1Id,
+            CheckInDate = new DateOnly(2026, 11, 1),
+            CheckOutDate = new DateOnly(2026, 11, 3),
+            Status = BookingStatus.Pending,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-(BookingService.PendingTtlMinutes + 5)),
+            TotalAmount = 200m,
+            CurrencyCode = "EUR"
+        };
+        var fresh = new Booking
+        {
+            PlaceId = PlaceId,
+            UserId = User2Id,
+            CheckInDate = new DateOnly(2026, 11, 5),
+            CheckOutDate = new DateOnly(2026, 11, 7),
+            Status = BookingStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            TotalAmount = 200m,
+            CurrencyCode = "EUR"
+        };
+        db.Bookings.AddRange(stale, fresh);
+        db.SaveChanges();
+
+        var svc = CreateService(db);
+
+        var count = await svc.ExpireStalePendingsAsync();
+
+        Assert.Equal(1, count);
+        using var verifyDb = _factory.CreateContext();
+        Assert.Equal(BookingStatus.Expired, (await verifyDb.Bookings.FindAsync(stale.Id))!.Status);
+        Assert.Equal(BookingStatus.Pending, (await verifyDb.Bookings.FindAsync(fresh.Id))!.Status);
     }
 
     public void Dispose()
