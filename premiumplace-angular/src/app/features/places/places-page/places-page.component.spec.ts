@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { PlacesService } from '../../../core/places/places.service';
 import type { PlacePreview } from '../../../core/places/places.models';
@@ -73,5 +73,14 @@ describe('PlacesPageComponent', () => {
     component.onQueryChange('loft');
 
     expect(component.filteredPlaces().length).toBe(1);
+  });
+
+  it('sets the error signal when loading fails', () => {
+    placesService.loadAll.and.returnValue(throwError(() => new Error('Network down')));
+
+    const fresh = TestBed.createComponent(PlacesPageComponent);
+    fresh.detectChanges();
+
+    expect(fresh.componentInstance.error()).toBe('Network down');
   });
 });
