@@ -237,6 +237,9 @@ namespace PremiumPlace_API.Services.Bookings
             var items = await _db.Bookings
                 .AsNoTracking()
                 .Where(b => b.UserId == userId)
+                // Only real reservations belong in "My reservations"; Pending/Failed/Expired
+                // are transient payment states and are hidden.
+                .Where(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Cancelled)
                 .OrderByDescending(b => b.CreatedAt)
                 .Select(b => new MyBookingDTO
                 {

@@ -293,6 +293,49 @@ public class BookingServiceTests : IDisposable
         Assert.Equal("Test Place", result.Data[0].PlaceName);
     }
 
+    // ───────────────────────── H2 ─────────────────────────
+    [Fact]
+    public async Task GetMyBookings_ExcludesPendingAndTransientStates()
+    {
+        using var db = _factory.CreateContext();
+
+        db.Bookings.AddRange(
+            new Booking
+            {
+                PlaceId = PlaceId, UserId = User1Id,
+                CheckInDate = new DateOnly(2026, 5, 1), CheckOutDate = new DateOnly(2026, 5, 3),
+                Status = BookingStatus.Confirmed, CreatedAt = new DateTime(2026, 1, 20, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Booking
+            {
+                PlaceId = PlaceId, UserId = User1Id,
+                CheckInDate = new DateOnly(2026, 5, 5), CheckOutDate = new DateOnly(2026, 5, 7),
+                Status = BookingStatus.Cancelled, CreatedAt = new DateTime(2026, 1, 19, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Booking
+            {
+                PlaceId = PlaceId, UserId = User1Id,
+                CheckInDate = new DateOnly(2026, 5, 9), CheckOutDate = new DateOnly(2026, 5, 11),
+                Status = BookingStatus.Pending, CreatedAt = new DateTime(2026, 1, 18, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Booking
+            {
+                PlaceId = PlaceId, UserId = User1Id,
+                CheckInDate = new DateOnly(2026, 5, 12), CheckOutDate = new DateOnly(2026, 5, 14),
+                Status = BookingStatus.Expired, CreatedAt = new DateTime(2026, 1, 17, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
+        db.SaveChanges();
+
+        var svc = CreateService(db);
+
+        var result = await svc.GetMyBookingsAsync(User1Id);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, result.Data!.Count);
+        Assert.All(result.Data, b => Assert.Contains(b.Status, new[] { "Confirmed", "Cancelled" }));
+    }
+
     // ───────────────────────── I ─────────────────────────
     [Fact]
     public async Task CancelBooking_OwnBooking_Succeeds_AndIdempotent()

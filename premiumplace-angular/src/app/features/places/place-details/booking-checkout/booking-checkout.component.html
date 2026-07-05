@@ -4,6 +4,13 @@
     <strong>{{ currency() }} {{ total().toFixed(2) }}</strong>
   </div>
 
+  @if (status() === 'loading') {
+    <div class="checkout__state">
+      <mat-spinner diameter="26"></mat-spinner>
+      <span>Loading payment…</span>
+    </div>
+  }
+
   @if (status() === 'creating') {
     <div class="checkout__state">
       <mat-spinner diameter="26"></mat-spinner>
@@ -32,8 +39,8 @@
     </div>
   }
 
-  <!-- PayPal buttons render here once the pending booking exists -->
-  <div #paypal class="checkout__paypal" [hidden]="status() !== 'paying'"></div>
+  <!-- PayPal buttons; the pending booking is created only when one is clicked. -->
+  <div #paypal class="checkout__paypal" [hidden]="!(status() === 'paying' || status() === 'creating')"></div>
 
   @if (status() !== 'done') {
     <button mat-button type="button" class="checkout__cancel" (click)="cancel()">

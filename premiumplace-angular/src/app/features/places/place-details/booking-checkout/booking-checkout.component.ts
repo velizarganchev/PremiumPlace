@@ -17,7 +17,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BookingsService } from '../../../../core/bookings/bookings.service';
 import { PayPalLoaderService } from '../../../../core/payments/paypal-loader.service';
 
-type CheckoutStatus = 'idle' | 'creating' | 'paying' | 'confirming' | 'done' | 'error';
+type CheckoutStatus = 'loading' | 'paying' | 'creating' | 'confirming' | 'done' | 'error';
 
 @Component({
   selector: 'app-booking-checkout',
@@ -41,32 +41,16 @@ export class BookingCheckoutComponent {
   readonly confirmed = output<number>();
   readonly cancelled = output<void>();
 
-  readonly status = signal<CheckoutStatus>('idle');
+  readonly status = signal<CheckoutStatus>('loading');
   readonly error = signal<string | null>(null);
 
   private readonly paypalHost = viewChild<ElementRef<HTMLElement>>('paypal');
   private bookingId?: number;
 
   ngOnInit() {
-    this.start();
-  }
-
-  /** Creates the pending booking, then renders the PayPal buttons. */
-  start() {
-    this.status.set('creating');
-    this.error.set(null);
-
-    this.bookings.createPending({
-      placeId: this.placeId(),
-      checkInDate: this.checkInDate(),
-      checkOutDate: this.checkOutDate(),
-    }).subscribe({
-      next: (res) => {
-        this.bookingId = res.bookingId;
-        void this.renderPayPal();
-      },
-      error: (err) => this.fail(err?.message ?? 'Could not start the booking.'),
-    });
+    // No booking is created up front. It is created only when the user actually
+    // starts paying (PayPal createOrder), so merely opening checkout records nothing.
+    void this.renderPayPal();
   }
 
   cancel() {
@@ -75,7 +59,8 @@ export class BookingCheckoutComponent {
 
   private async renderPayPal() {
     try {
-      this.status.set('paying');
+      this.status.set('loading');
+      this.error.set(null);
 
       const config = await firstValueFrom(this.bookings.paymentConfig());
       const currency = config.currency || this.currency();
@@ -86,25 +71,49 @@ export class BookingCheckoutComponent {
       host.innerHTML = '';
 
       paypal.Buttons({
-        createOrder: (_data: unknown, actions: any) => actions.order.create({
-          purchase_units: [{
-            amount: { value: this.total().toFixed(2), currency_code: currency },
-          }],
-        }),
+        // Create the pending booking only now, when the user commits to paying.
+        createOrder: async (_data: unknown, actions: any) => {
+          try {
+            this.status.set('creating');
+            const res = await firstValueFrom(this.bookings.createPending({
+              placeId: this.placeId(),
+              checkInDate: this.checkInDate(),
+              checkOutDate: this.checkOutDate(),
+            }));
+            this.bookingId = res.bookingId;
+            this.status.set('paying');
+
+            return await actions.order.create({
+              purchase_units: [{
+                amount: { value: this.total().toFixed(2), currency_code: currency },
+              }],
+            });
+          } catch (err: any) {
+            this.fail(err?.message ?? 'Could not reserve your dates.');
+            throw err;
+          }
+        },
         onApprove: (data: { orderID: string }) => this.confirm(data.orderID),
         onError: () => this.fail('Payment could not be completed.'),
-        onCancel: () => this.status.set('idle'),
+        onCancel: () => this.status.set('paying'),
       }).render(host);
+
+      this.status.set('paying');
     } catch (err: any) {
       this.fail(err?.message ?? 'Payment is unavailable right now.');
     }
   }
 
   private confirm(orderId: string) {
+    if (!this.bookingId) {
+      this.fail('Missing booking reference.');
+      return;
+    }
+
     this.status.set('confirming');
 
     this.bookings.confirm({
-      bookingId: this.bookingId!,
+      bookingId: this.bookingId,
       paymentReference: orderId,
     }).subscribe({
       next: () => {
