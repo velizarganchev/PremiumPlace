@@ -78,6 +78,112 @@ public class PlaceServiceTests : IDisposable
         Assert.True(persisted.Features.PetsAllowed);
     }
 
+    [Fact]
+    public async Task SearchPlaces_FilterByCity_ReturnsOnlyThatCity()
+    {
+        using var db = _factory.CreateContext();
+        SeedCatalog(db);
+        var svc = new PlaceService(db, _mapper);
+
+        var result = await svc.SearchPlacesAsync(new PlaceQueryDTO { City = "Munich" });
+
+        Assert.True(result.Success, result.Message);
+        Assert.NotNull(result.Data);
+        Assert.Equal(2, result.Data.Total);
+        Assert.All(result.Data.Items, p => Assert.Equal("Munich", p.City));
+    }
+
+    [Fact]
+    public async Task SearchPlaces_ByTerm_MatchesName()
+    {
+        using var db = _factory.CreateContext();
+        SeedCatalog(db);
+        var svc = new PlaceService(db, _mapper);
+
+        var result = await svc.SearchPlacesAsync(new PlaceQueryDTO { Search = "Studio" });
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(1, result.Data!.Total);
+        Assert.Equal("Berlin Studio", Assert.Single(result.Data.Items).Name);
+    }
+
+    [Fact]
+    public async Task SearchPlaces_Paginates_ReturnsRequestedPageAndTotal()
+    {
+        using var db = _factory.CreateContext();
+        SeedCatalog(db);
+        var svc = new PlaceService(db, _mapper);
+
+        var page1 = await svc.SearchPlacesAsync(new PlaceQueryDTO { Page = 1, PageSize = 2 });
+        var page2 = await svc.SearchPlacesAsync(new PlaceQueryDTO { Page = 2, PageSize = 2 });
+
+        Assert.Equal(4, page1.Data!.Total);
+        Assert.Equal(2, page1.Data.Items.Count);
+        Assert.Equal(2, page2.Data!.Items.Count);
+        // Default sort is by Id, so pages must not overlap.
+        Assert.Empty(page1.Data.Items.Select(i => i.Id).Intersect(page2.Data.Items.Select(i => i.Id)));
+    }
+
+    [Fact]
+    public async Task SearchPlaces_SortPriceAsc_OrdersByRate()
+    {
+        using var db = _factory.CreateContext();
+        SeedCatalog(db);
+        var svc = new PlaceService(db, _mapper);
+
+        var result = await svc.SearchPlacesAsync(new PlaceQueryDTO { Sort = "priceAsc" });
+
+        var rates = result.Data!.Items.Select(p => p.Rate).ToList();
+        Assert.Equal(rates.OrderBy(r => r).ToList(), rates);
+    }
+
+    // Adds a second city and three more places on top of the base-seeded place (Id 1, Berlin, rate 100).
+    private static void SeedCatalog(PremiumPlace_API.Data.ApplicationDbContext db)
+    {
+        db.Cities.Add(new City { Id = 2, Name = "Munich" });
+
+        db.Places.AddRange(
+            new Place
+            {
+                Id = 2,
+                Name = "Munich Flat",
+                Details = "cozy flat",
+                CityId = 2,
+                GuestCapacity = 4,
+                Rate = 80m,
+                Beds = 2,
+                SquareFeet = 400,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Place
+            {
+                Id = 3,
+                Name = "Berlin Studio",
+                Details = "modern loft",
+                CityId = 1,
+                GuestCapacity = 3,
+                Rate = 150m,
+                Beds = 1,
+                SquareFeet = 350,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Place
+            {
+                Id = 4,
+                Name = "Beach House",
+                Details = "sea view",
+                CityId = 2,
+                GuestCapacity = 6,
+                Rate = 200m,
+                Beds = 3,
+                SquareFeet = 1200,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
+
+        db.SaveChanges();
+    }
+
     private void SeedBaseData()
     {
         using var db = _factory.CreateContext();

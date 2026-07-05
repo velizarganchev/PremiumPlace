@@ -5,6 +5,7 @@ namespace PremiumPlace_API.Services.Places
     public interface IPlaceService
     {
         Task<ServiceResponse<List<PlaceDTO>>> GetAllPlacesAsync();
+        Task<ServiceResponse<PagedResult<PlaceDTO>>> SearchPlacesAsync(PlaceQueryDTO query);
         Task<ServiceResponse<PlaceDetailsDTO>> GetPlaceByIdAsync(int id);
         Task<ServiceResponse<PlaceOptionsDTO>> GetPlaceOptionsAsync();
         Task<ServiceResponse<PlaceDTO>> CreatePlaceAsync(PlaceCreateDTO placeDTO);

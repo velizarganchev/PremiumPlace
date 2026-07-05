@@ -197,6 +197,65 @@ namespace PremiumPlace_API.Services.Places
             };
         }
 
+        public async Task<ServiceResponse<PagedResult<PlaceDTO>>> SearchPlacesAsync(PlaceQueryDTO query)
+        {
+            query ??= new PlaceQueryDTO();
+
+            var page = query.Page < 1 ? 1 : query.Page;
+            var pageSize = query.PageSize is < 1 or > 100 ? 12 : query.PageSize;
+
+            var q = _db.Places
+                .AsNoTracking()
+                .Include(p => p.City)
+                .Include(p => p.Amenitys)
+                .Include(p => p.Reviews)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(query.City))
+            {
+                var city = query.City.Trim();
+                q = q.Where(p => p.City.Name == city);
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.Search))
+            {
+                var term = $"%{query.Search.Trim()}%";
+                q = q.Where(p =>
+                    EF.Functions.Like(p.Name, term) ||
+                    EF.Functions.Like(p.City.Name, term) ||
+                    (p.Details != null && EF.Functions.Like(p.Details, term)) ||
+                    p.Amenitys.Any(a => EF.Functions.Like(a.Name, term)));
+            }
+
+            q = query.Sort switch
+            {
+                "priceAsc" => q.OrderBy(p => p.Rate).ThenBy(p => p.Id),
+                "priceDesc" => q.OrderByDescending(p => p.Rate).ThenBy(p => p.Id),
+                "capacityDesc" => q.OrderByDescending(p => p.GuestCapacity).ThenBy(p => p.Id),
+                _ => q.OrderBy(p => p.Id)
+            };
+
+            var total = await q.CountAsync();
+
+            var items = await q
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new ServiceResponse<PagedResult<PlaceDTO>>
+            {
+                Success = true,
+                Data = new PagedResult<PlaceDTO>
+                {
+                    Items = _mapper.Map<List<PlaceDTO>>(items),
+                    Total = total,
+                    Page = page,
+                    PageSize = pageSize
+                },
+                Message = "Places retrieved successfully."
+            };
+        }
+
         public async Task<ServiceResponse<PlaceDetailsDTO>> GetPlaceByIdAsync(int id)
         {
             if (id <= 0) return Fail<PlaceDetailsDTO>("Invalid place ID.");
