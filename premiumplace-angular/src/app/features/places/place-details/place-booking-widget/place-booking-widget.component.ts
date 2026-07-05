@@ -2,12 +2,16 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
+  inject,
   input,
   output,
   signal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+
+import { BookingsService } from '../../../../core/bookings/bookings.service';
 import {
   FormControl,
   FormGroup,
@@ -51,6 +55,12 @@ export class PlaceBookingWidgetComponent {
   // --- Outputs (signal-based) ---
   readonly dateRangeChange = output<{ start: Date | null; end: Date | null }>();
   readonly bookClicked = output<{ placeId: number; start: Date; end: Date }>();
+
+  private readonly bookings = inject(BookingsService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  /** Booked (blocked) day ranges as [from, toExcl) in local-day epoch ms. */
+  private readonly blocked = signal<{ from: number; toExcl: number }[]>([]);
 
   // --- Reactive form ---
   readonly form = new FormGroup({
@@ -104,8 +114,33 @@ export class PlaceBookingWidgetComponent {
   /** Earliest selectable date (today). */
   readonly minDate = new Date();
 
+  /** Disables booked days in the calendar (greyed out + not selectable). */
+  readonly dateFilter = computed(() => {
+    const ranges = this.blocked();
+    return (d: Date | null): boolean => d === null || !isBlocked(d, ranges);
+  });
+
+  /** Marks booked days with a class for distinct styling. */
+  readonly dateClass = computed(() => {
+    const ranges = this.blocked();
+    return (d: Date): string => (isBlocked(d, ranges) ? 'pp-blocked' : '');
+  });
+
   // --- Private ---
   private _selectingEnd = false;
+
+  ngOnInit(): void {
+    const today = new Date();
+    this.bookings
+      .availability(this.placeId(), isoOf(today), isoOf(addDays(today, 365)))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (a) => this.blocked.set(
+          (a.blockedRanges ?? []).map(r => ({ from: parseIsoMs(r.from), toExcl: parseIsoMs(r.to) })),
+        ),
+        error: () => { /* availability is best-effort; backend still guards overlaps */ },
+      });
+  }
 
   constructor() {
     effect(() => {
@@ -132,6 +167,7 @@ export class PlaceBookingWidgetComponent {
    */
   onCalendarDateClicked(date: Date | null): void {
     if (!date) return;
+    if (isBlocked(date, this.blocked())) return;
 
     const currentStart = this.form.controls.start.value;
 
@@ -172,4 +208,35 @@ export class PlaceBookingWidgetComponent {
 
     this.bookClicked.emit({ placeId: this.placeId(), start, end });
   }
+}
+
+/** Start-of-local-day epoch ms for a date. */
+function startOfDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** True when the date falls inside any [from, toExcl) booked range. */
+function isBlocked(d: Date, ranges: { from: number; toExcl: number }[]): boolean {
+  const t = startOfDayMs(d);
+  return ranges.some(r => t >= r.from && t < r.toExcl);
+}
+
+/** Parses a yyyy-MM-dd string to local-day epoch ms. */
+function parseIsoMs(iso: string): number {
+  const [y, m, day] = iso.split('-').map(Number);
+  return new Date(y, m - 1, day).getTime();
+}
+
+/** Formats a Date as a local yyyy-MM-dd string. */
+function isoOf(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
 }

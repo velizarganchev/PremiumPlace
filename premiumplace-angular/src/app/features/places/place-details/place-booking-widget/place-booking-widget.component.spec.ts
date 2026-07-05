@@ -1,19 +1,29 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { MatNativeDateModule } from '@angular/material/core';
+import { of } from 'rxjs';
 
 import { PlaceBookingWidgetComponent } from './place-booking-widget.component';
+import { BookingsService } from '../../../../core/bookings/bookings.service';
 
 describe('PlaceBookingWidgetComponent', () => {
   let component: PlaceBookingWidgetComponent;
   let fixture: ComponentFixture<PlaceBookingWidgetComponent>;
 
   beforeEach(async () => {
+    const bookings = {
+      // 2026-05-12 → 2026-05-14 (checkout exclusive): 12 & 13 are booked.
+      availability: () => of({ blockedRanges: [{ from: '2026-05-12', to: '2026-05-14' }] }),
+    };
+
     await TestBed.configureTestingModule({
       imports: [
         PlaceBookingWidgetComponent,
         NoopAnimationsModule,
         MatNativeDateModule,
+      ],
+      providers: [
+        { provide: BookingsService, useValue: bookings },
       ],
     }).compileComponents();
 
@@ -136,5 +146,16 @@ describe('PlaceBookingWidgetComponent', () => {
 
     expect(component.form.controls.start.value).toEqual(earlier);
     expect(component.form.controls.end.value).toEqual(later);
+  });
+
+  it('disables booked days and ignores clicks on them', () => {
+    const booked = new Date(2026, 4, 12);   // within blocked range
+    const free = new Date(2026, 4, 14);     // checkout-exclusive end -> free
+
+    expect(component.dateFilter()(booked)).toBeFalse();
+    expect(component.dateFilter()(free)).toBeTrue();
+
+    component.onCalendarDateClicked(booked);
+    expect(component.form.controls.start.value).toBeNull();
   });
 });

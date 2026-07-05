@@ -63,6 +63,12 @@ mat-card {
   ::ng-deep .mat-calendar {
     width: 100%;
   }
+
+  /* Booked days: greyed out and struck through (also disabled via dateFilter). */
+  ::ng-deep .pp-blocked .mat-calendar-body-cell-content {
+    color: rgba(0, 0, 0, 0.28);
+    text-decoration: line-through;
+  }
 }
 
 /* ---- Nights summary ---- */
