@@ -1,4 +1,5 @@
 using PremiumPlace.DTO.Bookings;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PremiumPlace_API.Infrastructure.Payments.PayPal;
 using PremiumPlace_API.Models;
@@ -70,7 +71,8 @@ public class BookingServiceTests : IDisposable
         => new(
             db,
             payPalVerifier ?? new SuccessfulPayPalPaymentVerifier(),
-            Options.Create(new PayPalOptions { ExpectedCurrency = "EUR" }));
+            Options.Create(new PayPalOptions { ExpectedCurrency = "EUR" }),
+            NullLogger<BookingService>.Instance);
 
     // ───────────────────────── A ─────────────────────────
     [Fact]

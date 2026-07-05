@@ -12,13 +12,16 @@ namespace PremiumPlace_API.Services.Bookings
         private readonly ApplicationDbContext _db;
         private readonly IPayPalPaymentVerifier _payPalVerifier;
         private readonly PayPalOptions _payPalOptions;
+        private readonly ILogger<BookingService> _logger;
 
         public BookingService(ApplicationDbContext db, IPayPalPaymentVerifier payPalVerifier,
-        Microsoft.Extensions.Options.IOptions<PayPalOptions> payPalOptions)
+        Microsoft.Extensions.Options.IOptions<PayPalOptions> payPalOptions,
+        ILogger<BookingService> logger)
         {
             _db = db;
             _payPalVerifier = payPalVerifier;
             _payPalOptions = payPalOptions.Value;
+            _logger = logger;
         }
 
         public async Task<ServiceResponse<AvailabilityResponse>> GetAvailabilityAsync(int placeId, DateOnly from, DateOnly to)
@@ -102,6 +105,10 @@ namespace PremiumPlace_API.Services.Bookings
             await _db.Bookings.AddAsync(booking);
             await _db.SaveChangesAsync();
 
+            _logger.LogInformation(
+                "Booking pending created: BookingId={BookingId}, UserId={UserId}, PlaceId={PlaceId}, Nights={Nights}, Amount={Amount} {Currency}",
+                booking.Id, userId, req.PlaceId, nights, total, currency);
+
             return new ServiceResponse<CreatePendingBookingResult>
             {
                 Success = true,
@@ -160,6 +167,10 @@ namespace PremiumPlace_API.Services.Bookings
                 booking.PaymentRef = req.PaymentReference;
                 await _db.SaveChangesAsync();
 
+                _logger.LogWarning(
+                    "Booking confirm failed (overlap): BookingId={BookingId}, UserId={UserId}, PlaceId={PlaceId}, PaymentRef={PaymentRef}",
+                    booking.Id, userId, booking.PlaceId, req.PaymentReference);
+
                 return Fail<ConfirmBookingResult>("Dates became unavailable before confirmation.", ServiceErrorType.Conflict);
             }
 
@@ -179,12 +190,20 @@ namespace PremiumPlace_API.Services.Bookings
                 booking.PaymentRef = req.PaymentReference;
                 await _db.SaveChangesAsync();
 
+                _logger.LogWarning(ex,
+                    "Booking payment verification failed: BookingId={BookingId}, UserId={UserId}, PaymentRef={PaymentRef}",
+                    booking.Id, userId, req.PaymentReference);
+
                 return Fail<ConfirmBookingResult>($"Payment verification failed: {ex.Message}", ServiceErrorType.Conflict);
             }
 
             booking.Status = BookingStatus.Confirmed;
             booking.PaymentRef = req.PaymentReference;
             await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Booking confirmed: BookingId={BookingId}, UserId={UserId}, PlaceId={PlaceId}, Amount={Amount} {Currency}, PaymentRef={PaymentRef}",
+                booking.Id, userId, booking.PlaceId, booking.TotalAmount, booking.CurrencyCode, req.PaymentReference);
 
             return new ServiceResponse<ConfirmBookingResult>
             {
@@ -241,8 +260,13 @@ namespace PremiumPlace_API.Services.Bookings
                 return new ServiceResponse<object> { Success = true, Message = "Booking already cancelled." };
 
             // allow cancelling Pending & Confirmed for demo
+            var previousStatus = booking.Status;
             booking.Status = BookingStatus.Cancelled;
             await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Booking cancelled: BookingId={BookingId}, UserId={UserId}, PreviousStatus={PreviousStatus}",
+                booking.Id, userId, previousStatus);
 
             return new ServiceResponse<object>
             {
