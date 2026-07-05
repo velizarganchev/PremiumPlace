@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { MatButtonModule } from '@angular/material/button';
 
@@ -18,6 +19,7 @@ import { mapPlaceToCard } from '../../core/places/places.mapper';
 export class HomeComponent {
 
   private placesService = inject(PlacesService);
+  private readonly destroyRef = inject(DestroyRef);
   cards = computed(() =>
     [...this.placesService.places()]
       .sort((a, b) =>
@@ -30,6 +32,8 @@ export class HomeComponent {
   );
 
   ngOnInit() {
-    this.placesService.loadAll().subscribe();
+    this.placesService.loadAll()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe();
   }
 }

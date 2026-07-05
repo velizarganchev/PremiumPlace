@@ -23,13 +23,9 @@ export class NavbarComponent {
   readonly username = computed(() => this.user()?.username ?? '');
 
   logout() {
-    const shouldRedirectToLogin = this.router.url.startsWith('/admin');
-
     this.auth.logout().subscribe({
       next: () => {
-        if (shouldRedirectToLogin) {
-          this.router.navigateByUrl('/auth/login');
-        }
+        this.router.navigateByUrl('/auth/login');
       },
     });
   }

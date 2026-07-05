@@ -123,7 +123,7 @@ namespace PremiumPlace_API.Controllers
 
         [HttpDelete("me")]
         [Authorize]
-        public async Task<IActionResult> DeleteMe(DeleteMeRequestDTO dto)
+        public async Task<IActionResult> DeleteMe([FromBody] DeleteMeRequestDTO dto)
         {
             var userIdStr =
                 User.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -133,10 +133,6 @@ namespace PremiumPlace_API.Controllers
                 return Unauthorized();
 
             var ip = GetClientIp();
-
-            Console.WriteLine("DeleteMe called. sub=" + User.FindFirstValue("sub"));
-            Console.WriteLine("nameid=" + User.FindFirstValue(ClaimTypes.NameIdentifier));
-
 
             var sr = await _authService.DeleteMeAsync(userId, dto.Password, ip);
             if (!sr.Success)

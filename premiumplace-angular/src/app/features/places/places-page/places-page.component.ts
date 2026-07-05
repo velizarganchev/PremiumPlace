@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 
 import { MatButtonModule } from '@angular/material/button';
@@ -35,6 +36,7 @@ type SortKey = 'recommended' | 'priceAsc' | 'priceDesc' | 'capacityDesc';
 })
 export class PlacesPageComponent {
   private readonly placesService = inject(PlacesService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly places = this.placesService.places;
   readonly loading = this.placesService.loadingList;
@@ -72,9 +74,11 @@ export class PlacesPageComponent {
   readonly cards = computed(() => this.filteredPlaces().map(mapPlaceToCard));
 
   ngOnInit() {
-    this.placesService.loadAll().subscribe({
-      error: (err) => this.error.set(err?.message ?? 'Unable to load places.'),
-    });
+    this.placesService.loadAll()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        error: (err) => this.error.set(err?.message ?? 'Unable to load places.'),
+      });
   }
 
   onQueryChange(value: string) {

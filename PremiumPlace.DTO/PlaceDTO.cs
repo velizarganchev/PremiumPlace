@@ -24,9 +24,13 @@
 
         public string City { get; init; } = string.Empty;
 
+        public int CityId { get; init; }
+
         public PlaceFeaturesDTO Features { get; init; } = new();
 
         public List<string> Amenitys { get; init; } = new();
+
+        public List<int> AmenityIds { get; init; } = new();
 
         public ReviewSummaryDTO ReviewSummary { get; init; } = new();
     }

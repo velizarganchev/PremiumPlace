@@ -27,8 +27,21 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddAutoMapper(cfg =>
 {
-    cfg.CreateMap<Place, PlaceCreateDTO>().ReverseMap();
-    cfg.CreateMap<Place, PlaceUpdateDTO>().ReverseMap();
+    cfg.CreateMap<Place, PlaceCreateDTO>();
+    cfg.CreateMap<PlaceCreateDTO, Place>()
+        .ForMember(d => d.City, opt => opt.Ignore())
+        .ForMember(d => d.Amenitys, opt => opt.Ignore())
+        .ForMember(d => d.Reviews, opt => opt.Ignore())
+        .ForMember(d => d.CreatedAt, opt => opt.Ignore())
+        .ForMember(d => d.UpdatedAt, opt => opt.Ignore());
+
+    cfg.CreateMap<Place, PlaceUpdateDTO>();
+    cfg.CreateMap<PlaceUpdateDTO, Place>()
+        .ForMember(d => d.City, opt => opt.Ignore())
+        .ForMember(d => d.Amenitys, opt => opt.Ignore())
+        .ForMember(d => d.Reviews, opt => opt.Ignore())
+        .ForMember(d => d.CreatedAt, opt => opt.Ignore())
+        .ForMember(d => d.UpdatedAt, opt => opt.Ignore());
 
     cfg.CreateMap<PlaceFeatures, PlaceFeaturesDTO>().ReverseMap();
 
@@ -42,6 +55,7 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.CreateMap<Place, PlaceDTO>()
         .ForMember(d => d.City, opt => opt.MapFrom(p => p.City.Name))
         .ForMember(d => d.Amenitys, opt => opt.MapFrom(p => p.Amenitys.Select(a => a.Name).ToList()))
+        .ForMember(d => d.AmenityIds, opt => opt.MapFrom(p => p.Amenitys.Select(a => a.Id).ToList()))
         .ForMember(d => d.Features, opt => opt.MapFrom(p => p.Features))
         .ForMember(d => d.ReviewSummary, opt => opt.MapFrom(s =>
             s.Reviews.Any()
@@ -51,8 +65,7 @@ builder.Services.AddAutoMapper(cfg =>
                     Avg = Math.Round(s.Reviews.Average(r => r.Rating), 1)
                 }
                 : new ReviewSummaryDTO { Count = 0, Avg = 0 }
-        ))
-        .ReverseMap();
+        ));
 
     cfg.CreateMap<Place, PlaceDetailsDTO>()
     .ForMember(d => d.City, opt => opt.MapFrom(s => s.City.Name))

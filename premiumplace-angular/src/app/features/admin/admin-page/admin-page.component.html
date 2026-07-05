@@ -1,8 +1,195 @@
 <section class="admin-page">
-  <div>
-    <p class="eyebrow">Admin</p>
-    <h1>Admin dashboard</h1>
-  </div>
+  <header class="admin-header">
+    <div>
+      <p class="eyebrow">Admin</p>
+      <h1>Places management</h1>
+      <p class="summary">{{ places().length }} places in the catalog</p>
+    </div>
 
-  <a mat-flat-button routerLink="/places">Places</a>
+    <button mat-flat-button type="button" (click)="startCreate()">
+      <mat-icon>add</mat-icon>
+      New place
+    </button>
+  </header>
+
+  @if (error(); as err) {
+    <div class="error-banner">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ err }}</span>
+    </div>
+  }
+
+  <section class="admin-grid">
+    <div class="places-panel">
+      <div class="panel-head">
+        <h2>Places</h2>
+        @if (loading()) {
+          <mat-spinner diameter="22"></mat-spinner>
+        }
+      </div>
+
+      <div class="place-list">
+        @for (place of places(); track place.id) {
+          <article
+            class="place-row"
+            [class.place-row--active]="selectedPlace()?.id === place.id"
+          >
+            <img [src]="place.imageUrl" alt="" />
+
+            <div class="place-row__main">
+              <h3>{{ place.name }}</h3>
+              <p>{{ place.city }} · EUR {{ place.rate }} / night</p>
+              <span>{{ place.guestCapacity }} guests · {{ place.beds }} beds</span>
+            </div>
+
+            <div class="place-row__actions">
+              <button mat-icon-button type="button" aria-label="Edit place" (click)="editPlace(place)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button type="button" aria-label="Delete place" (click)="deletePlace(place)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </article>
+        } @empty {
+          <p class="empty">No places found.</p>
+        }
+      </div>
+    </div>
+
+    <form class="form-panel" [formGroup]="form" (ngSubmit)="save()">
+      <div class="panel-head">
+        <h2>{{ formTitle() }}</h2>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" />
+          @if (form.controls.name.hasError('required')) {
+            <mat-error>Name is required</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Description</mat-label>
+          <textarea matInput rows="3" formControlName="details"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>City</mat-label>
+          <mat-select formControlName="cityId">
+            <mat-option [value]="0">Add new city</mat-option>
+            @for (city of options().cities; track city.id) {
+              <mat-option [value]="city.id">{{ city.name }}</mat-option>
+            }
+          </mat-select>
+          @if (form.controls.cityId.hasError('required')) {
+            <mat-error>City is required</mat-error>
+          }
+        </mat-form-field>
+
+        @if (form.controls.cityId.value === 0) {
+          <mat-form-field appearance="outline">
+            <mat-label>New city</mat-label>
+            <input matInput formControlName="cityName" />
+            @if (form.controls.cityName.hasError('required')) {
+              <mat-error>City name is required</mat-error>
+            }
+          </mat-form-field>
+        }
+
+        <mat-form-field appearance="outline">
+          <mat-label>Rate</mat-label>
+          <input matInput type="number" formControlName="rate" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Guests</mat-label>
+          <input matInput type="number" formControlName="guestCapacity" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Beds</mat-label>
+          <input matInput type="number" formControlName="beds" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Check-in hour</mat-label>
+          <input matInput type="number" formControlName="checkInHour" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Check-out hour</mat-label>
+          <input matInput type="number" formControlName="checkOutHour" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Square feet</mat-label>
+          <input matInput type="number" formControlName="squareFeet" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Image URL</mat-label>
+          <input matInput formControlName="imageUrl" />
+        </mat-form-field>
+      </div>
+
+      <section class="check-section">
+        <h3>Amenities</h3>
+        <div class="check-grid">
+          @for (amenity of options().amenities; track amenity.id) {
+            <mat-checkbox
+              [checked]="hasAmenity(amenity.id)"
+              (change)="toggleAmenity(amenity.id, $event.checked)"
+            >
+              {{ amenity.name }}
+            </mat-checkbox>
+          }
+        </div>
+      </section>
+
+      <section class="check-section" formGroupName="features">
+        <h3>Features</h3>
+        <div class="check-grid">
+          @for (feature of featureOptions; track feature.key) {
+            <mat-checkbox [formControlName]="feature.key">
+              {{ feature.label }}
+            </mat-checkbox>
+          }
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button mat-stroked-button type="button" (click)="startCreate()">Reset</button>
+        <button mat-flat-button type="submit" [disabled]="saving() || form.invalid">
+          @if (saving()) {
+            Saving...
+          } @else {
+            Save place
+          }
+        </button>
+      </div>
+    </form>
+  </section>
+
+  @if (placePendingDelete(); as place) {
+    <div class="dialog-backdrop" role="presentation">
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <div class="confirm-dialog__icon">
+          <mat-icon>delete</mat-icon>
+        </div>
+        <div>
+          <h2 id="delete-title">Delete place?</h2>
+          <p>
+            This will remove <strong>{{ place.name }}</strong> from the catalog.
+          </p>
+        </div>
+        <div class="confirm-dialog__actions">
+          <button mat-stroked-button type="button" (click)="cancelDelete()">Cancel</button>
+          <button mat-flat-button color="warn" type="button" (click)="confirmDelete()">Delete</button>
+        </div>
+      </section>
+    </div>
+  }
 </section>

@@ -22,13 +22,14 @@ namespace PremiumPlace_API.Services.Places
 
             var name = dto.Name.Trim();
             var existingPlace = await _db.Places.AnyAsync(p => p.Name == name);
-            if (existingPlace) return Fail<PlaceDTO>("Place with the same name already exists.");
+            if (existingPlace) return Fail<PlaceDTO>("Place with the same name already exists.", ServiceErrorType.Conflict);
 
-            var cityExists = await _db.Cities.AnyAsync(c => c.Id == dto.CityId);
-            if (!cityExists) return Fail<PlaceDTO>("Invalid city.");
+            var (cityOk, cityId, cityError) = await ResolveCityIdAsync(dto.CityId, dto.CityName);
+            if (!cityOk) return Fail<PlaceDTO>(cityError ?? "Invalid city.");
 
             var place = _mapper.Map<Place>(dto);
             place.Name = name;
+            place.CityId = cityId;
             place.CreatedAt = DateTime.UtcNow;
 
             var (ok, amenities, error) = await ResolveAmenitiesAsync(dto.AmenityIds);
@@ -38,10 +39,12 @@ namespace PremiumPlace_API.Services.Places
             await _db.Places.AddAsync(place);
             await _db.SaveChangesAsync();
 
+            var created = await LoadPlaceDtoAsync(place.Id);
+
             return new ServiceResponse<PlaceDTO>
             {
                 Success = true,
-                Data = _mapper.Map<PlaceDTO>(place),
+                Data = created,
                 Message = "Place created successfully."
             };
         }
@@ -56,7 +59,7 @@ namespace PremiumPlace_API.Services.Places
                 .Include(p => p.Amenitys)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (placeInDb is null) return Fail<PlaceDTO>("Place not found.");
+            if (placeInDb is null) return Fail<PlaceDTO>("Place not found.", ServiceErrorType.NotFound);
 
             var name = dto.Name.Trim();
 
@@ -64,14 +67,16 @@ namespace PremiumPlace_API.Services.Places
                 .AsNoTracking()
                 .AnyAsync(p => p.Name == name && p.Id != id);
 
-            if (duplicate) return Fail<PlaceDTO>("Another place with the same name already exists.");
+            if (duplicate) return Fail<PlaceDTO>("Another place with the same name already exists.", ServiceErrorType.Conflict);
 
-            var cityExists = await _db.Cities.AnyAsync(c => c.Id == dto.CityId);
-            if (!cityExists) return Fail<PlaceDTO>("Invalid city.");
+            var (cityOk, cityId, cityError) = await ResolveCityIdAsync(dto.CityId, dto.CityName);
+            if (!cityOk) return Fail<PlaceDTO>(cityError ?? "Invalid city.");
 
             _mapper.Map(dto, placeInDb);
             placeInDb.Name = name;
+            placeInDb.CityId = cityId;
             placeInDb.UpdatedAt = DateTime.UtcNow;
+            ApplyFeatures(placeInDb.Features, dto.Features);
 
             if (dto.AmenityIds is not null)
             {
@@ -85,10 +90,12 @@ namespace PremiumPlace_API.Services.Places
 
             await _db.SaveChangesAsync();
 
+            var updated = await LoadPlaceDtoAsync(id);
+
             return new ServiceResponse<PlaceDTO>
             {
                 Success = true,
-                Data = _mapper.Map<PlaceDTO>(placeInDb),
+                Data = updated,
                 Message = "Place updated successfully."
             };
         }
@@ -102,7 +109,7 @@ namespace PremiumPlace_API.Services.Places
                 .Include(p => p.Amenitys)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (placeInDb is null) return Fail<PlaceDTO>("Place not found.");
+            if (placeInDb is null) return Fail<PlaceDTO>("Place not found.", ServiceErrorType.NotFound);
 
             if (dto.Name is not null)
             {
@@ -112,7 +119,7 @@ namespace PremiumPlace_API.Services.Places
                     .AsNoTracking()
                     .AnyAsync(p => p.Name == name && p.Id != id);
 
-                if (duplicate) return Fail<PlaceDTO>("Another place with the same name already exists.");
+                if (duplicate) return Fail<PlaceDTO>("Another place with the same name already exists.", ServiceErrorType.Conflict);
 
                 placeInDb.Name = name;
             }
@@ -182,14 +189,11 @@ namespace PremiumPlace_API.Services.Places
                 .Include(p => p.Reviews)
                 .ToListAsync();
 
-            if (dbPlaces.Count == 0)
-                return new ServiceResponse<List<PlaceDTO>> { Success = false, Message = "No places found." };
-
             return new ServiceResponse<List<PlaceDTO>>
             {
                 Success = true,
                 Data = _mapper.Map<List<PlaceDTO>>(dbPlaces),
-                Message = "Places retrieved successfully."
+                Message = dbPlaces.Count == 0 ? "No places found." : "Places retrieved successfully."
             };
         }
 
@@ -204,7 +208,7 @@ namespace PremiumPlace_API.Services.Places
                 .Include(p => p.Reviews).ThenInclude(r => r.User)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (placeInDb is null) return Fail<PlaceDetailsDTO>("Place not found.");
+            if (placeInDb is null) return Fail<PlaceDetailsDTO>("Place not found.", ServiceErrorType.NotFound);
 
             return new ServiceResponse<PlaceDetailsDTO>
             {
@@ -214,12 +218,40 @@ namespace PremiumPlace_API.Services.Places
             };
         }
 
+        public async Task<ServiceResponse<PlaceOptionsDTO>> GetPlaceOptionsAsync()
+        {
+            var cities = await _db.Cities
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            var amenities = await _db.Amenitys
+                .AsNoTracking()
+                .OrderBy(a => a.Name)
+                .ToListAsync();
+
+            return new ServiceResponse<PlaceOptionsDTO>
+            {
+                Success = true,
+                Data = new PlaceOptionsDTO
+                {
+                    Cities = _mapper.Map<List<CityDTO>>(cities),
+                    Amenities = _mapper.Map<List<AmenityDTO>>(amenities)
+                },
+                Message = "Place options retrieved successfully."
+            };
+        }
+
         public async Task<ServiceResponse<PlaceDTO>> DeletePlaceAsync(int id)
         {
             if (id <= 0) return Fail<PlaceDTO>("Invalid place ID.");
 
             var place = await _db.Places.FirstOrDefaultAsync(p => p.Id == id);
-            if (place is null) return Fail<PlaceDTO>("Place not found.");
+            if (place is null) return Fail<PlaceDTO>("Place not found.", ServiceErrorType.NotFound);
+
+            var hasBookings = await _db.Bookings.AnyAsync(b => b.PlaceId == id);
+            if (hasBookings)
+                return Fail<PlaceDTO>("Place cannot be deleted because it has bookings.", ServiceErrorType.Conflict);
 
             _db.Places.Remove(place);
             await _db.SaveChangesAsync();
@@ -252,7 +284,58 @@ namespace PremiumPlace_API.Services.Places
             return (true, amenities, null);
         }
 
-        private static ServiceResponse<T> Fail<T>(string message)
-            => new() { Success = false, Message = message };
+        private async Task<(bool ok, int cityId, string? error)> ResolveCityIdAsync(int cityId, string? cityName)
+        {
+            if (cityId > 0)
+            {
+                var exists = await _db.Cities.AnyAsync(c => c.Id == cityId);
+                return exists
+                    ? (true, cityId, null)
+                    : (false, 0, "Invalid city.");
+            }
+
+            var name = cityName?.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                return (false, 0, "City is required.");
+
+            var existing = await _db.Cities.FirstOrDefaultAsync(c => c.Name == name);
+            if (existing is not null)
+                return (true, existing.Id, null);
+
+            var city = new City { Name = name };
+            await _db.Cities.AddAsync(city);
+            await _db.SaveChangesAsync();
+
+            return (true, city.Id, null);
+        }
+
+        private async Task<PlaceDTO> LoadPlaceDtoAsync(int id)
+        {
+            var place = await _db.Places
+                .AsNoTracking()
+                .Include(p => p.City)
+                .Include(p => p.Amenitys)
+                .Include(p => p.Reviews)
+                .FirstAsync(p => p.Id == id);
+
+            return _mapper.Map<PlaceDTO>(place);
+        }
+
+        private static void ApplyFeatures(PlaceFeatures target, PlaceFeaturesDTO source)
+        {
+            target.Internet = source.Internet;
+            target.AirConditioned = source.AirConditioned;
+            target.PetsAllowed = source.PetsAllowed;
+            target.Parking = source.Parking;
+            target.Entertainment = source.Entertainment;
+            target.Kitchen = source.Kitchen;
+            target.Refrigerator = source.Refrigerator;
+            target.Washer = source.Washer;
+            target.Dryer = source.Dryer;
+            target.SelfCheckIn = source.SelfCheckIn;
+        }
+
+        private static ServiceResponse<T> Fail<T>(string message, ServiceErrorType type = ServiceErrorType.Validation)
+            => new() { Success = false, Message = message, ErrorType = type };
     }
 }

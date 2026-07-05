@@ -31,8 +31,10 @@ namespace PremiumPlace.DTO
         [MaxLength(500)]
         public string? ImageUrl { get; init; }
 
-        [Required]
         public int CityId { get; init; }
+
+        [MaxLength(100)]
+        public string? CityName { get; init; }
 
         public PlaceFeaturesDTO Features { get; init; } = new();
 

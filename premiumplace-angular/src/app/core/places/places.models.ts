@@ -38,8 +38,10 @@ export type PlaceDto = {
     squareFeet: number;
     imageUrl: string;
     city: string;
+    cityId: number;
     features: PlaceFeatures;
     amenitys: string[];
+    amenityIds: number[];
 };
 
 export type ReviewSummary = {
@@ -52,11 +54,40 @@ export type PlacePreview = {
     name: string;
     details: string;
     city: string;
+    cityId: number;
     rate: number;
     imageUrl: string;
     amenity: string[];
+    amenityIds: number[];
     features: PlaceFeatures;
     guestCapacity: number;
     beds: number;
     reviewSummary: ReviewSummary;
+};
+
+export type PlaceFormRequest = {
+    id?: number;
+    name: string;
+    details: string | null;
+    guestCapacity: number;
+    rate: number;
+    beds: number;
+    checkInHour: number;
+    checkOutHour: number;
+    squareFeet: number;
+    imageUrl: string | null;
+    cityId: number;
+    cityName?: string | null;
+    features: PlaceFeatures;
+    amenityIds: number[];
+};
+
+export type PlaceOptionItem = {
+    id: number;
+    name: string;
+};
+
+export type PlaceOptions = {
+    cities: PlaceOptionItem[];
+    amenities: PlaceOptionItem[];
 };

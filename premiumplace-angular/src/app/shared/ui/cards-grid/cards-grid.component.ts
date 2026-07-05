@@ -22,4 +22,10 @@ export class CardsGridComponent {
     if (!card.href) return;
     this.router.navigateByUrl(card.href);
   }
+
+  onCardActivate(event: Event, card: CardItem): void {
+    // Prevent the space key from scrolling the page before navigating.
+    event.preventDefault();
+    this.onCardClick(card);
+  }
 }

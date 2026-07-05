@@ -133,4 +133,25 @@ describe('NavbarComponent', () => {
     expect(auth.logout).toHaveBeenCalled();
     expect(navigateByUrl).toHaveBeenCalledWith('/auth/login');
   });
+
+  it('redirects to login after logout from a public page', () => {
+    currentUser.set({
+      id: 2,
+      username: 'demo',
+      email: 'demo@premiumplace.local',
+      role: 'User',
+    });
+    spyOnProperty(router, 'url', 'get').and.returnValue('/places');
+    const navigateByUrl = spyOn(router, 'navigateByUrl').and.resolveTo(true);
+    fixture.detectChanges();
+
+    const logoutButton = fixture.debugElement
+      .queryAll(By.css('button'))
+      .find(button => button.nativeElement.textContent.includes('Logout'));
+
+    logoutButton!.nativeElement.click();
+
+    expect(auth.logout).toHaveBeenCalled();
+    expect(navigateByUrl).toHaveBeenCalledWith('/auth/login');
+  });
 });

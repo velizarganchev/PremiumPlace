@@ -1,4 +1,9 @@
-﻿namespace PremiumPlace.DTO.Auth
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace PremiumPlace.DTO.Auth
 {
-    public record DeleteMeRequestDTO(string Password);
+    public record DeleteMeRequestDTO(
+        [property: Required(ErrorMessage = "Please enter your password.")]
+        [property: MaxLength(128)]
+        string Password);
 }
