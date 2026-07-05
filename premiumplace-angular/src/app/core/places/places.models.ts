@@ -82,6 +82,23 @@ export type PlaceFormRequest = {
     amenityIds: number[];
 };
 
+export type PlaceSortKey = 'recommended' | 'priceAsc' | 'priceDesc' | 'capacityDesc';
+
+export type PlaceQuery = {
+    search?: string;
+    city?: string;
+    sort?: PlaceSortKey;
+    page?: number;
+    pageSize?: number;
+};
+
+export type PagedResult<T> = {
+    items: T[];
+    total: number;
+    page: number;
+    pageSize: number;
+};
+
 export type PlaceOptionItem = {
     id: number;
     name: string;

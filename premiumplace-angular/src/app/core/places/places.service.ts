@@ -2,7 +2,7 @@ import { inject, Injectable, signal, computed } from '@angular/core';
 import { tap, map, finalize } from 'rxjs';
 import { PlacesApi } from './places.api';
 import { mapPlace, mapPlaceToCard } from './places.mapper';
-import type { PlacePreview, PlaceDto, PlaceFormRequest } from './places.models';
+import type { PagedResult, PlacePreview, PlaceDto, PlaceFormRequest, PlaceQuery } from './places.models';
 
 @Injectable({ providedIn: 'root' })
 export class PlacesService {
@@ -39,6 +39,26 @@ export class PlacesService {
             }),
             finalize(() => this._loadingList.set(false))
         );
+    }
+
+    search(query: PlaceQuery) {
+        this._loadingList.set(true);
+
+        return this.api.search(query).pipe(
+            map((res): PagedResult<PlacePreview> => ({
+                ...res,
+                items: res.items.map(mapPlace),
+            })),
+            tap({
+                next: (res) => this._places.set(res.items),
+                error: () => this._places.set([]),
+            }),
+            finalize(() => this._loadingList.set(false))
+        );
+    }
+
+    cities() {
+        return this.api.cities();
     }
 
     options() {

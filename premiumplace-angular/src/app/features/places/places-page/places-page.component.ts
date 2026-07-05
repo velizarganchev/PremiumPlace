@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { catchError, debounceTime, merge, of, Subject, switchMap, tap } from 'rxjs';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,10 +13,8 @@ import { MatSelectModule } from '@angular/material/select';
 
 import { PlacesService } from '../../../core/places/places.service';
 import { mapPlaceToCard } from '../../../core/places/places.mapper';
-import type { PlacePreview } from '../../../core/places/places.models';
+import type { PlaceSortKey } from '../../../core/places/places.models';
 import { CardsGridComponent } from '../../../shared/ui/cards-grid/cards-grid.component';
-
-type SortKey = 'recommended' | 'priceAsc' | 'priceDesc' | 'capacityDesc';
 
 @Component({
   selector: 'app-places-page',
@@ -40,75 +39,95 @@ export class PlacesPageComponent {
 
   readonly places = this.placesService.places;
   readonly loading = this.placesService.loadingList;
+  readonly cards = computed(() => this.places().map(mapPlaceToCard));
 
   readonly query = signal('');
   readonly city = signal('all');
-  readonly sort = signal<SortKey>('recommended');
+  readonly sort = signal<PlaceSortKey>('recommended');
+  readonly page = signal(1);
+  readonly pageSize = signal(12);
+  readonly total = signal(0);
   readonly error = signal<string | null>(null);
+  readonly cities = signal<string[]>([]);
 
-  readonly cities = computed(() =>
-    Array.from(new Set(this.places().map(place => place.city)))
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b))
-  );
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
+  readonly hasPrev = computed(() => this.page() > 1);
+  readonly hasNext = computed(() => this.page() < this.totalPages());
 
-  readonly filteredPlaces = computed(() => {
-    const query = this.query().trim().toLowerCase();
-    const city = this.city();
+  // Text input is debounced; selects and pagination fire immediately.
+  private readonly immediate$ = new Subject<void>();
+  private readonly debounced$ = new Subject<void>();
 
-    const filtered = this.places().filter(place => {
-      const matchesCity = city === 'all' || place.city === city;
-      const searchable = [
-        place.name,
-        place.city,
-        place.details,
-        ...(place.amenity ?? []),
-      ].join(' ').toLowerCase();
-
-      return matchesCity && (!query || searchable.includes(query));
-    });
-
-    return [...filtered].sort((a, b) => this.comparePlaces(a, b));
-  });
-
-  readonly cards = computed(() => this.filteredPlaces().map(mapPlaceToCard));
+  constructor() {
+    merge(this.immediate$, this.debounced$.pipe(debounceTime(300)))
+      .pipe(
+        switchMap(() => this.runSearch()),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
+  }
 
   ngOnInit() {
-    this.placesService.loadAll()
+    this.placesService.cities()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        error: (err) => this.error.set(err?.message ?? 'Unable to load places.'),
-      });
+      .subscribe({ next: (cities) => this.cities.set(cities), error: () => { } });
+
+    this.immediate$.next();
+  }
+
+  private runSearch() {
+    this.error.set(null);
+
+    return this.placesService.search({
+      search: this.query().trim() || undefined,
+      city: this.city() === 'all' ? undefined : this.city(),
+      sort: this.sort(),
+      page: this.page(),
+      pageSize: this.pageSize(),
+    }).pipe(
+      tap((res) => this.total.set(res.total)),
+      catchError((err) => {
+        this.error.set(err?.message ?? 'Unable to load places.');
+        return of(null);
+      }),
+    );
   }
 
   onQueryChange(value: string) {
     this.query.set(value);
+    this.page.set(1);
+    this.debounced$.next();
   }
 
   onCityChange(value: string) {
     this.city.set(value);
+    this.page.set(1);
+    this.immediate$.next();
   }
 
-  onSortChange(value: SortKey) {
+  onSortChange(value: PlaceSortKey) {
     this.sort.set(value);
+    this.page.set(1);
+    this.immediate$.next();
   }
 
   clearFilters() {
     this.query.set('');
     this.city.set('all');
     this.sort.set('recommended');
+    this.page.set(1);
+    this.immediate$.next();
   }
 
-  private comparePlaces(a: PlacePreview, b: PlacePreview): number {
-    switch (this.sort()) {
-      case 'priceAsc':
-        return a.rate - b.rate;
-      case 'priceDesc':
-        return b.rate - a.rate;
-      case 'capacityDesc':
-        return b.guestCapacity - a.guestCapacity;
-      default:
-        return a.id - b.id;
-    }
+  prevPage() {
+    if (!this.hasPrev()) return;
+    this.page.update(p => p - 1);
+    this.immediate$.next();
+  }
+
+  nextPage() {
+    if (!this.hasNext()) return;
+    this.page.update(p => p + 1);
+    this.immediate$.next();
   }
 }

@@ -7,7 +7,7 @@
         @if (loading()) {
           Loading available stays
         } @else {
-          {{ filteredPlaces().length }} of {{ places().length }} places
+          Showing {{ places().length }} of {{ total() }} places
         }
       </p>
     </div>
@@ -68,5 +68,17 @@
     </div>
   } @else {
     <app-cards-grid [cards]="cards()" />
+
+    @if (totalPages() > 1) {
+      <nav class="pagination" aria-label="Pagination">
+        <button mat-stroked-button type="button" (click)="prevPage()" [disabled]="!hasPrev()">
+          Previous
+        </button>
+        <span class="pagination__info">Page {{ page() }} of {{ totalPages() }}</span>
+        <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="!hasNext()">
+          Next
+        </button>
+      </nav>
+    }
   }
 </section>

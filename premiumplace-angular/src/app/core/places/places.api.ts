@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import type { PlaceDto, PlaceFormRequest, PlaceOptions } from './places.models';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import type { PagedResult, PlaceDto, PlaceFormRequest, PlaceOptions, PlaceQuery } from './places.models';
 
 @Injectable({ providedIn: 'root' })
 export class PlacesApi {
@@ -8,6 +8,21 @@ export class PlacesApi {
 
     list() {
         return this.http.get<PlaceDto[]>('/api/places');
+    }
+
+    search(query: PlaceQuery) {
+        let params = new HttpParams();
+        if (query.search) params = params.set('search', query.search);
+        if (query.city) params = params.set('city', query.city);
+        if (query.sort) params = params.set('sort', query.sort);
+        if (query.page) params = params.set('page', query.page);
+        if (query.pageSize) params = params.set('pageSize', query.pageSize);
+
+        return this.http.get<PagedResult<PlaceDto>>('/api/places/search', { params });
+    }
+
+    cities() {
+        return this.http.get<string[]>('/api/places/cities');
     }
 
     getById(id: number) {
