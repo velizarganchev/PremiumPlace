@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PremiumPlace.DTO;
 using PremiumPlace_API.Data;
+using PremiumPlace_API.Infrastructure;
 using PremiumPlace_API.Infrastructure.Payments.PayPal;
 using PremiumPlace_API.Models;
 using PremiumPlace_API.Services.Auth;
@@ -12,10 +13,15 @@ using PremiumPlace_API.Services.Places;
 using Scalar.AspNetCore;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddMemoryCache();
+
+// Global exception handling -> ProblemDetails (no stack-trace leak to clients).
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // Add services to the container.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -127,6 +133,21 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// Per-IP rate limiting for brute-force-sensitive auth endpoints.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendClients", policy =>
@@ -181,15 +202,33 @@ using (var scope = app.Services.CreateScope())
 
 
 // Configure the HTTP request pipeline.
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+else
+{
+    app.UseHsts();
+}
+
+// Baseline security response headers.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    await next();
+});
 
 app.UseHttpsRedirection();
 
 app.UseCors("FrontendClients");
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using PremiumPlace.DTO.Auth;
 using PremiumPlace_API.Controllers.Extensions;
@@ -22,6 +23,7 @@ namespace PremiumPlace_API.Controllers
             _jwt = jwt.Value;
         }
 
+        [EnableRateLimiting("auth")]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDTO dto)
         {
@@ -41,6 +43,7 @@ namespace PremiumPlace_API.Controllers
 
         }
 
+        [EnableRateLimiting("auth")]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDTO dto)
         {
