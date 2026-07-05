@@ -137,6 +137,19 @@ public class PlaceServiceTests : IDisposable
         Assert.Equal(rates.OrderBy(r => r).ToList(), rates);
     }
 
+    [Fact]
+    public async Task GetCityNames_ReturnsDistinctSortedCities()
+    {
+        using var db = _factory.CreateContext();
+        SeedCatalog(db);
+        var svc = new PlaceService(db, _mapper);
+
+        var result = await svc.GetCityNamesAsync();
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(new List<string> { "Berlin", "Munich" }, result.Data);
+    }
+
     // Adds a second city and three more places on top of the base-seeded place (Id 1, Berlin, rate 100).
     private static void SeedCatalog(PremiumPlace_API.Data.ApplicationDbContext db)
     {

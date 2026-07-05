@@ -31,6 +31,13 @@ namespace PremiumPlace_API.Controllers
             return this.ToActionResult(sr);
         }
 
+        [HttpGet("cities")]
+        public async Task<IActionResult> GetPlaceCities()
+        {
+            var sr = await _placeService.GetCityNamesAsync();
+            return this.ToActionResult(sr);
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetPlaceById(int id)
         {

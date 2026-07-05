@@ -256,6 +256,23 @@ namespace PremiumPlace_API.Services.Places
             };
         }
 
+        public async Task<ServiceResponse<List<string>>> GetCityNamesAsync()
+        {
+            var cities = await _db.Places
+                .AsNoTracking()
+                .Select(p => p.City.Name)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToListAsync();
+
+            return new ServiceResponse<List<string>>
+            {
+                Success = true,
+                Data = cities,
+                Message = "Cities retrieved successfully."
+            };
+        }
+
         public async Task<ServiceResponse<PlaceDetailsDTO>> GetPlaceByIdAsync(int id)
         {
             if (id <= 0) return Fail<PlaceDetailsDTO>("Invalid place ID.");
