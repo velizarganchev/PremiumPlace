@@ -116,26 +116,29 @@
 
         <!-- Right: booking widget -->
         <aside class="right">
-            <app-place-booking-widget
-                class="booking"
-                [placeId]="placeId()"
-                [rate]="p.rate"
-                [reviewAvg]="p.reviewSummary.avg"
-                [reviewCount]="p.reviewSummary.count"
-                (bookClicked)="onBook($event)"
-            />
-
-            @if (booking(); as b) {
-                <app-booking-checkout
-                    [placeId]="b.placeId"
-                    [checkInDate]="b.checkInDate"
-                    [checkOutDate]="b.checkOutDate"
-                    [nights]="b.nights"
-                    [total]="b.total"
-                    (confirmed)="onBooked()"
-                    (cancelled)="onCancelCheckout()"
+            <div class="booking-col">
+                <app-place-booking-widget
+                    class="booking"
+                    [placeId]="placeId()"
+                    [rate]="p.rate"
+                    [reviewAvg]="p.reviewSummary.avg"
+                    [reviewCount]="p.reviewSummary.count"
+                    (bookClicked)="onBook($event)"
+                    (dateRangeChange)="onDatesChanged()"
                 />
-            }
+
+                @if (booking(); as b) {
+                    <app-booking-checkout
+                        [placeId]="b.placeId"
+                        [checkInDate]="b.checkInDate"
+                        [checkOutDate]="b.checkOutDate"
+                        [nights]="b.nights"
+                        [total]="b.total"
+                        (confirmed)="onBooked()"
+                        (cancelled)="onCancelCheckout()"
+                    />
+                }
+            </div>
         </aside>
     </section>
 </section>

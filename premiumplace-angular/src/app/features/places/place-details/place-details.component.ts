@@ -105,6 +105,13 @@ export class PlaceDetailsComponent {
     this.booking.set(null);
   }
 
+  /** Changing the date selection dismisses an in-progress checkout so it can't go stale. */
+  onDatesChanged() {
+    if (this.booking()) {
+      this.booking.set(null);
+    }
+  }
+
   onBooked() {
     this.booking.set(null);
     this.router.navigateByUrl('/reservations');

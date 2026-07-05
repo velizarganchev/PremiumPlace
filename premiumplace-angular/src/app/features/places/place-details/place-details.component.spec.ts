@@ -74,4 +74,15 @@ describe('PlaceDetailsComponent', () => {
       total: 300,
     }));
   });
+
+  it('closes an open checkout when the date selection changes', () => {
+    loggedIn.set(true);
+    placeState.set({ rate: 100 });
+    component.onBook({ placeId: 1, start: new Date(2026, 7, 1), end: new Date(2026, 7, 4) });
+    expect(component.booking()).not.toBeNull();
+
+    component.onDatesChanged();
+
+    expect(component.booking()).toBeNull();
+  });
 });
