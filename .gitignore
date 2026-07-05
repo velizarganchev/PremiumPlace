@@ -91,3 +91,8 @@ pnpm-debug.log*
 ############################################################
 **/*.ngsummary.json
 **/*.ngfactory.ts
+
+############################################################
+# Claude Code local (personal) settings - do NOT commit
+############################################################
+.claude/settings.local.json
