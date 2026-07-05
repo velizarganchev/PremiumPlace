@@ -1,0 +1,46 @@
+<section class="reservations">
+  <header class="reservations__header">
+    <h1>My reservations</h1>
+  </header>
+
+  @if (error(); as err) {
+    <div class="banner banner--error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ err }}</span>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="state">
+      <mat-spinner diameter="34"></mat-spinner>
+    </div>
+  } @else if (reservations().length === 0) {
+    <div class="state">
+      <mat-icon>event_busy</mat-icon>
+      <h2>No reservations yet</h2>
+      <p>When you book a place it will show up here.</p>
+      <a mat-flat-button routerLink="/places">Browse places</a>
+    </div>
+  } @else {
+    <ul class="list">
+      @for (b of reservations(); track b.id) {
+        <li class="card">
+          <div class="card__main">
+            <h3>{{ b.placeName }}</h3>
+            <p class="dates">{{ b.checkInDate }} → {{ b.checkOutDate }}</p>
+            <span [class]="statusClass(b.status)">{{ b.status }}</span>
+          </div>
+
+          <div class="card__side">
+            <strong class="total">{{ b.currencyCode }} {{ b.totalAmount.toFixed(2) }}</strong>
+            @if (canCancel(b.status)) {
+              <button mat-stroked-button color="warn" type="button" (click)="cancel(b)">
+                Cancel
+              </button>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>

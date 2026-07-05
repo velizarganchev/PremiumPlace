@@ -1,0 +1,41 @@
+.checkout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+}
+
+.checkout__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+
+  strong {
+    font-size: 1.15rem;
+  }
+}
+
+.checkout__state {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+
+  &--ok {
+    color: #1b7a3d;
+  }
+
+  &--error {
+    color: #b3261e;
+  }
+}
+
+.checkout__paypal {
+  min-height: 2.5rem;
+}
+
+.checkout__cancel {
+  align-self: flex-start;
+}

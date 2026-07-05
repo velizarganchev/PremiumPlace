@@ -6,6 +6,7 @@
     <nav class="nav-links" aria-label="Main navigation">
         <a mat-button routerLink="/places">Places</a>
         @if (isLoggedIn()) {
+        <a mat-button routerLink="/reservations">My reservations</a>
         @if (isAdmin()) {
         <a mat-button routerLink="/admin">Admin</a>
         }

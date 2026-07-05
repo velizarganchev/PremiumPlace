@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard } from '../../core/guards/auth.guard';
+import { adminGuard, authGuard } from '../../core/guards/auth.guard';
 
 export const SHELL_ROUTES: Routes = [
     {
@@ -23,6 +23,12 @@ export const SHELL_ROUTES: Routes = [
                 canActivate: [adminGuard],
                 loadComponent: () =>
                     import('../admin/admin-page/admin-page.component').then(m => m.AdminPageComponent),
+            },
+            {
+                path: 'reservations',
+                canActivate: [authGuard],
+                loadComponent: () =>
+                    import('../reservations/reservations.component').then(m => m.ReservationsComponent),
             },
             // Booking (PRIVATE)
             // {

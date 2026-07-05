@@ -122,7 +122,20 @@
                 [rate]="p.rate"
                 [reviewAvg]="p.reviewSummary.avg"
                 [reviewCount]="p.reviewSummary.count"
+                (bookClicked)="onBook($event)"
             />
+
+            @if (booking(); as b) {
+                <app-booking-checkout
+                    [placeId]="b.placeId"
+                    [checkInDate]="b.checkInDate"
+                    [checkOutDate]="b.checkOutDate"
+                    [nights]="b.nights"
+                    [total]="b.total"
+                    (confirmed)="onBooked()"
+                    (cancelled)="onCancelCheckout()"
+                />
+            }
         </aside>
     </section>
 </section>

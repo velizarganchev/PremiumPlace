@@ -1,0 +1,43 @@
+<section class="checkout" aria-live="polite">
+  <div class="checkout__summary">
+    <span>{{ nights() }} night{{ nights() === 1 ? '' : 's' }}</span>
+    <strong>{{ currency() }} {{ total().toFixed(2) }}</strong>
+  </div>
+
+  @if (status() === 'creating') {
+    <div class="checkout__state">
+      <mat-spinner diameter="26"></mat-spinner>
+      <span>Reserving your dates…</span>
+    </div>
+  }
+
+  @if (status() === 'confirming') {
+    <div class="checkout__state">
+      <mat-spinner diameter="26"></mat-spinner>
+      <span>Confirming your payment…</span>
+    </div>
+  }
+
+  @if (status() === 'done') {
+    <div class="checkout__state checkout__state--ok">
+      <mat-icon>check_circle</mat-icon>
+      <span>Booking confirmed!</span>
+    </div>
+  }
+
+  @if (error(); as err) {
+    <div class="checkout__state checkout__state--error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ err }}</span>
+    </div>
+  }
+
+  <!-- PayPal buttons render here once the pending booking exists -->
+  <div #paypal class="checkout__paypal" [hidden]="status() !== 'paying'"></div>
+
+  @if (status() !== 'done') {
+    <button mat-button type="button" class="checkout__cancel" (click)="cancel()">
+      Cancel
+    </button>
+  }
+</section>
