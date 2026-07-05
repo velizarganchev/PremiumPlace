@@ -179,6 +179,7 @@ namespace PremiumPlace_API.Services.Places
                 .AsNoTracking()
                 .Include(p => p.City)
                 .Include(p => p.Amenitys)
+                .Include(p => p.Reviews)
                 .ToListAsync();
 
             if (dbPlaces.Count == 0)

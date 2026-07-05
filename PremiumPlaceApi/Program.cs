@@ -43,6 +43,15 @@ builder.Services.AddAutoMapper(cfg =>
         .ForMember(d => d.City, opt => opt.MapFrom(p => p.City.Name))
         .ForMember(d => d.Amenitys, opt => opt.MapFrom(p => p.Amenitys.Select(a => a.Name).ToList()))
         .ForMember(d => d.Features, opt => opt.MapFrom(p => p.Features))
+        .ForMember(d => d.ReviewSummary, opt => opt.MapFrom(s =>
+            s.Reviews.Any()
+                ? new ReviewSummaryDTO
+                {
+                    Count = s.Reviews.Count,
+                    Avg = Math.Round(s.Reviews.Average(r => r.Rating), 1)
+                }
+                : new ReviewSummaryDTO { Count = 0, Avg = 0 }
+        ))
         .ReverseMap();
 
     cfg.CreateMap<Place, PlaceDetailsDTO>()

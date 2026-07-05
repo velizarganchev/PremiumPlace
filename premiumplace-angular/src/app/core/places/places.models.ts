@@ -42,6 +42,11 @@ export type PlaceDto = {
     amenitys: string[];
 };
 
+export type ReviewSummary = {
+    avg: number;
+    count: number;
+};
+
 export type PlacePreview = {
     id: number;
     name: string;
@@ -53,4 +58,5 @@ export type PlacePreview = {
     features: PlaceFeatures;
     guestCapacity: number;
     beds: number;
+    reviewSummary: ReviewSummary;
 };

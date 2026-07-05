@@ -27,5 +27,7 @@
         public PlaceFeaturesDTO Features { get; init; } = new();
 
         public List<string> Amenitys { get; init; } = new();
+
+        public ReviewSummaryDTO ReviewSummary { get; init; } = new();
     }
 }

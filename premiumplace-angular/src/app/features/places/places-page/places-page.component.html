@@ -1,1 +1,72 @@
-<p>places-page works!</p>
+<section class="places-page">
+  <header class="places-header">
+    <div>
+      <p class="eyebrow">PremiumPlace stays</p>
+      <h1>Browse places</h1>
+      <p class="summary">
+        @if (loading()) {
+          Loading available stays
+        } @else {
+          {{ filteredPlaces().length }} of {{ places().length }} places
+        }
+      </p>
+    </div>
+  </header>
+
+  <section class="filters" aria-label="Place filters">
+    <mat-form-field appearance="outline" class="filters__search">
+      <mat-label>Search</mat-label>
+      <mat-icon matPrefix>search</mat-icon>
+      <input
+        matInput
+        [ngModel]="query()"
+        (ngModelChange)="onQueryChange($event)"
+        placeholder="Name, city, amenity"
+      />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>City</mat-label>
+      <mat-select [ngModel]="city()" (ngModelChange)="onCityChange($event)">
+        <mat-option value="all">All cities</mat-option>
+        @for (item of cities(); track item) {
+          <mat-option [value]="item">{{ item }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Sort</mat-label>
+      <mat-select [ngModel]="sort()" (ngModelChange)="onSortChange($event)">
+        <mat-option value="recommended">Recommended</mat-option>
+        <mat-option value="priceAsc">Price: low to high</mat-option>
+        <mat-option value="priceDesc">Price: high to low</mat-option>
+        <mat-option value="capacityDesc">Largest capacity</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-stroked-button type="button" class="filters__clear" (click)="clearFilters()">
+      Clear
+    </button>
+  </section>
+
+  @if (loading()) {
+    <div class="state">
+      <mat-spinner diameter="34"></mat-spinner>
+    </div>
+  } @else if (error()) {
+    <div class="state state--error">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ error() }}</p>
+    </div>
+  } @else if (cards().length === 0) {
+    <div class="state">
+      <mat-icon>search_off</mat-icon>
+      <h2>No places found</h2>
+      <p>Try a different city, search term, or sort option.</p>
+      <button mat-flat-button type="button" (click)="clearFilters()">Reset filters</button>
+    </div>
+  } @else {
+    <app-cards-grid [cards]="cards()" />
+  }
+</section>

@@ -12,6 +12,7 @@ export const mapPlace = (dto: PlaceDto): PlacePreview => ({
     features: dto.features,
     guestCapacity: dto.guestCapacity,
     beds: dto.beds,
+    reviewSummary: dto.reviewSummary ?? { avg: 0, count: 0 },
 });
 
 export const amenitiesPreview = (amenity: string[], take = 2) =>
@@ -23,7 +24,7 @@ export function mapPlaceToCard(place: PlacePreview): CardItem {
         id: String(place.id),
         title: place.name,
         subtitle: place.city,
-        priceText: `$${place.rate} / night`,
+        priceText: `EUR ${place.rate} / night`,
         meta: buildMeta(place),
         imageUrl: place.imageUrl,
         href: `/places/${place.id}`,
