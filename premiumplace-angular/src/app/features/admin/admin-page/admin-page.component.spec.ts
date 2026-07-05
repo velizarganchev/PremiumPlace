@@ -100,6 +100,24 @@ describe('AdminPageComponent', () => {
     expect(component.hasAmenity(1)).toBeTrue();
   });
 
+  it('keeps amenities checked on edit when details omit amenityIds', () => {
+    // Reproduce the reported bug: details payload without amenityIds must not clear the selection.
+    service.byId.and.returnValue(of({
+      ...place,
+      checkInHour: 14,
+      checkOutHour: 11,
+      squareFeet: 500,
+      amenitys: place.amenity,
+      amenityIds: [],
+      reviews: [],
+    }));
+
+    component.editPlace(place); // place.amenityIds === [1]
+
+    expect(component.hasAmenity(1)).toBeTrue();
+    expect(component.form.controls.amenityIds.value).toEqual([1]);
+  });
+
   it('creates a new place with the selected existing city', () => {
     component.startCreate();
     component.form.controls.name.setValue('New Loft');

@@ -17,16 +17,14 @@ export type PlaceDto = {
         avg: number;
         count: number;
     };
-    reviews: [
-        {
-            id: number;
-            rating: number;
-            comment: string;
-            createdAt: string;
-            userId: number;
-            username: string;
-        },
-    ];
+    reviews: Array<{
+        id: number;
+        rating: number;
+        comment: string;
+        createdAt: string;
+        userId: number;
+        username: string;
+    }>;
     id: number;
     name: string;
     details: string;

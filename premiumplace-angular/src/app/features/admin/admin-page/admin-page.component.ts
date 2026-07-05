@@ -131,7 +131,8 @@ export class AdminPageComponent {
           squareFeet: details.squareFeet,
           cityId: details.cityId,
           cityName: '',
-          amenityIds: details.amenityIds ?? [],
+          // Keep the preview's amenities if the details payload omits them.
+          amenityIds: details.amenityIds?.length ? details.amenityIds : (place.amenityIds ?? []),
           features: details.features,
         });
       },

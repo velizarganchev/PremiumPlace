@@ -81,6 +81,7 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.CreateMap<Place, PlaceDetailsDTO>()
     .ForMember(d => d.City, opt => opt.MapFrom(s => s.City.Name))
     .ForMember (d => d.Amenitys, opt => opt.MapFrom(s => s.Amenitys.Select(a => a.Name).ToList()))
+    .ForMember(d => d.AmenityIds, opt => opt.MapFrom(s => s.Amenitys.Select(a => a.Id).ToList()))
     .ForMember(d => d.Reviews, opt => opt.MapFrom(s => s.Reviews))
     .ForMember(d => d.ReviewSummary, opt => opt.MapFrom(s =>
         s.Reviews.Any()

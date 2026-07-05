@@ -80,6 +80,27 @@ public class PlaceServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPlaceById_ReturnsAmenityIds_ForEditForm()
+    {
+        // Attach an amenity to the seeded place so the details projection has ids to return.
+        using (var seed = _factory.CreateContext())
+        {
+            var place = await seed.Places.Include(p => p.Amenitys).FirstAsync(p => p.Id == 1);
+            var amenity = await seed.Amenitys.FirstAsync(a => a.Id == 1);
+            place.Amenitys.Add(amenity);
+            await seed.SaveChangesAsync();
+        }
+
+        using var db = _factory.CreateContext();
+        var svc = new PlaceService(db, _mapper);
+
+        var result = await svc.GetPlaceByIdAsync(1);
+
+        Assert.True(result.Success, result.Message);
+        Assert.Contains(1, result.Data!.AmenityIds); // was empty before the PlaceDetailsDTO mapping fix
+    }
+
+    [Fact]
     public async Task CreatePlace_NewCityName_CreatesSingleCity()
     {
         using var db = _factory.CreateContext();
@@ -350,6 +371,22 @@ public class PlaceServiceTests : IDisposable
                 .ForMember(d => d.Amenitys, opt => opt.MapFrom(p => p.Amenitys.Select(a => a.Name).ToList()))
                 .ForMember(d => d.AmenityIds, opt => opt.MapFrom(p => p.Amenitys.Select(a => a.Id).ToList()))
                 .ForMember(d => d.Features, opt => opt.MapFrom(p => p.Features))
+                .ForMember(d => d.ReviewSummary, opt => opt.MapFrom(s =>
+                    s.Reviews.Any()
+                        ? new ReviewSummaryDTO
+                        {
+                            Count = s.Reviews.Count,
+                            Avg = Math.Round(s.Reviews.Average(r => r.Rating), 1)
+                        }
+                        : new ReviewSummaryDTO { Count = 0, Avg = 0 }
+                ));
+
+            cfg.CreateMap<Place, PlaceDetailsDTO>()
+                .ForMember(d => d.City, opt => opt.MapFrom(p => p.City.Name))
+                .ForMember(d => d.Amenitys, opt => opt.MapFrom(p => p.Amenitys.Select(a => a.Name).ToList()))
+                .ForMember(d => d.AmenityIds, opt => opt.MapFrom(p => p.Amenitys.Select(a => a.Id).ToList()))
+                .ForMember(d => d.Features, opt => opt.MapFrom(p => p.Features))
+                .ForMember(d => d.Reviews, opt => opt.MapFrom(p => p.Reviews))
                 .ForMember(d => d.ReviewSummary, opt => opt.MapFrom(s =>
                     s.Reviews.Any()
                         ? new ReviewSummaryDTO
