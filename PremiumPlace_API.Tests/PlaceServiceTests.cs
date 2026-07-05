@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using PremiumPlace.DTO;
+using PremiumPlace_API.Data;
 using PremiumPlace_API.Models;
 using PremiumPlace_API.Services.Places;
 using PremiumPlace_API.Tests.Helpers;
@@ -77,6 +78,97 @@ public class PlaceServiceTests : IDisposable
         Assert.True(persisted.Features.AirConditioned);
         Assert.True(persisted.Features.PetsAllowed);
     }
+
+    [Fact]
+    public async Task CreatePlace_NewCityName_CreatesSingleCity()
+    {
+        using var db = _factory.CreateContext();
+        var svc = new PlaceService(db, _mapper);
+
+        var result = await svc.CreatePlaceAsync(NewPlace("Dresden Loft", cityName: "Dresden"));
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal("Dresden", result.Data!.City);
+        Assert.Equal(2, await db.Cities.CountAsync()); // Berlin (seed) + Dresden
+    }
+
+    [Fact]
+    public async Task CreatePlace_ExistingCityDifferentCaseAndSpacing_ReusesCity()
+    {
+        using var db = _factory.CreateContext();
+        var svc = new PlaceService(db, _mapper);
+
+        // Base seed already has "Berlin" (Id 1).
+        var result = await svc.CreatePlaceAsync(NewPlace("Second Berlin Place", cityName: "  berlin ")); // different case + spacing
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(1, result.Data!.CityId);
+        Assert.Equal(1, await db.Cities.CountAsync()); // no duplicate city created
+    }
+
+    [Fact]
+    public async Task MergeDuplicateCities_RepointsPlacesAndRemovesDuplicates()
+    {
+        using (var seed = _factory.CreateContext())
+        {
+            // Introduce a duplicate of "Berlin" (Id 1) that differs only by case/spacing.
+            var dup = new City { Id = 99, Name = "berlin " };
+            seed.Cities.Add(dup);
+            seed.Places.Add(new Place
+            {
+                Id = 50,
+                Name = "Place On Dup City",
+                CityId = 99,
+                GuestCapacity = 2,
+                Rate = 100m,
+                Beds = 1,
+                SquareFeet = 400,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            });
+            seed.SaveChanges();
+        }
+
+        using var db = _factory.CreateContext();
+        var removed = await CityMaintenance.MergeDuplicatesAsync(db);
+
+        Assert.Equal(1, removed);
+
+        using var verify = _factory.CreateContext();
+        Assert.Equal(1, await verify.Cities.CountAsync()); // only canonical Berlin remains
+        Assert.False(await verify.Cities.AnyAsync(c => c.Id == 99));
+        var moved = await verify.Places.FirstAsync(p => p.Id == 50);
+        Assert.Equal(1, moved.CityId); // repointed to canonical city
+    }
+
+    [Fact]
+    public async Task DeletePlace_WithoutBookings_RemovesPlace()
+    {
+        using var db = _factory.CreateContext();
+        var svc = new PlaceService(db, _mapper);
+
+        var result = await svc.DeletePlaceAsync(1);
+
+        Assert.True(result.Success, result.Message);
+        using var verify = _factory.CreateContext();
+        Assert.False(await verify.Places.AnyAsync(p => p.Id == 1));
+    }
+
+    private static PlaceCreateDTO NewPlace(string name, string? cityName = null, int cityId = 0) => new()
+    {
+        Name = name,
+        Details = "details",
+        GuestCapacity = 2,
+        Rate = 120m,
+        Beds = 1,
+        CheckInHour = 14,
+        CheckOutHour = 11,
+        SquareFeet = 400,
+        ImageUrl = "https://example.com/x.jpg",
+        CityId = cityId,
+        CityName = cityName,
+        AmenityIds = new List<int>(),
+        Features = new PlaceFeaturesDTO()
+    };
 
     [Fact]
     public async Task SearchPlaces_FilterByCity_ReturnsOnlyThatCity()

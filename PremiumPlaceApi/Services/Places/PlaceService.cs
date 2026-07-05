@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using PremiumPlace.DTO;
 using PremiumPlace_API.Data;
 using PremiumPlace_API.Models;
+using System.Text.RegularExpressions;
 
 namespace PremiumPlace_API.Services.Places
 {
@@ -370,17 +371,31 @@ namespace PremiumPlace_API.Services.Places
                     : (false, 0, "Invalid city.");
             }
 
-            var name = cityName?.Trim();
+            var name = CityNames.Normalize(cityName);
             if (string.IsNullOrWhiteSpace(name))
                 return (false, 0, "City is required.");
 
-            var existing = await _db.Cities.FirstOrDefaultAsync(c => c.Name == name);
+            // Case-insensitive match so "Berlin", "berlin" and "berlin " resolve to one city.
+            var lowered = name.ToLower();
+            var existing = await _db.Cities.FirstOrDefaultAsync(c => c.Name.ToLower() == lowered);
             if (existing is not null)
                 return (true, existing.Id, null);
 
             var city = new City { Name = name };
             await _db.Cities.AddAsync(city);
-            await _db.SaveChangesAsync();
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Lost a race (or hit a unique constraint) — reuse the city that now exists.
+                _db.Entry(city).State = EntityState.Detached;
+                var raced = await _db.Cities.FirstOrDefaultAsync(c => c.Name.ToLower() == lowered);
+                if (raced is null) throw;
+                return (true, raced.Id, null);
+            }
 
             return (true, city.Id, null);
         }

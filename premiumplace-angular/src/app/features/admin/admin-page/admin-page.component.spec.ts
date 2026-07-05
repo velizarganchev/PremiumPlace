@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { PlacesService } from '../../../core/places/places.service';
 import type { PlaceOptions, PlacePreview } from '../../../core/places/places.models';
@@ -98,5 +98,76 @@ describe('AdminPageComponent', () => {
     expect(component.form.controls.name.value).toBe('Admin Place');
     expect(component.form.controls.cityId.value).toBe(1);
     expect(component.hasAmenity(1)).toBeTrue();
+  });
+
+  it('creates a new place with the selected existing city', () => {
+    component.startCreate();
+    component.form.controls.name.setValue('New Loft');
+
+    component.save();
+
+    expect(service.create).toHaveBeenCalledWith(
+      jasmine.objectContaining({ name: 'New Loft', cityId: 1, cityName: null }),
+    );
+    expect(service.update).not.toHaveBeenCalled();
+  });
+
+  it('sends cityName when adding a new city', () => {
+    component.startCreate();
+    component.form.controls.name.setValue('Dresden Loft');
+    component.form.controls.cityId.setValue(0);
+    component.form.controls.cityName.setValue('  Dresden ');
+
+    component.save();
+
+    expect(service.create).toHaveBeenCalledWith(
+      jasmine.objectContaining({ cityId: 0, cityName: 'Dresden' }),
+    );
+  });
+
+  it('blocks saving a new city with no name', () => {
+    component.startCreate();
+    component.form.controls.name.setValue('No City Place');
+    component.form.controls.cityId.setValue(0);
+    component.form.controls.cityName.setValue('');
+
+    component.save();
+
+    expect(service.create).not.toHaveBeenCalled();
+    expect(component.form.controls.cityName.hasError('required')).toBeTrue();
+  });
+
+  it('updates the selected place', () => {
+    component.editPlace(place);
+    component.form.controls.rate.setValue(999);
+
+    component.save();
+
+    expect(service.update).toHaveBeenCalledWith(
+      7,
+      jasmine.objectContaining({ id: 7, rate: 999 }),
+    );
+    expect(service.create).not.toHaveBeenCalled();
+  });
+
+  it('deletes a place after confirmation', () => {
+    component.deletePlace(place);
+    expect(component.placePendingDelete()).toBe(place);
+
+    component.confirmDelete();
+
+    expect(service.delete).toHaveBeenCalledWith(7);
+    expect(component.placePendingDelete()).toBeNull();
+  });
+
+  it('surfaces an error when saving fails', () => {
+    service.create.and.returnValue(throwError(() => new Error('Save failed')));
+    component.startCreate();
+    component.form.controls.name.setValue('Broken');
+
+    component.save();
+
+    expect(component.error()).toBe('Save failed');
+    expect(component.saving()).toBeFalse();
   });
 });

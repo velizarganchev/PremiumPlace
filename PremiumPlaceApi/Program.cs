@@ -203,6 +203,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var passwordService = scope.ServiceProvider.GetRequiredService<IPasswordService>();
     await db.Database.MigrateAsync();
+    await CityMaintenance.MergeDuplicatesAsync(db);
     await DbSeeder.SeedAsync(db, passwordService);
 }
 
