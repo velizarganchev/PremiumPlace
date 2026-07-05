@@ -164,8 +164,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:7073",  // MVC dev
                 "https://localhost:7073"  // MVC dev
             )
-            .AllowAnyHeader()
-            .AllowAnyMethod()
+            .WithHeaders("Content-Type", "Authorization")
+            .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
             .AllowCredentials();
     });
 });
