@@ -1,15 +1,18 @@
 <mat-toolbar class="pp-toolbar">
-    <a mat-button routerLink="/">PremiumPlace</a>
+    <a class="brand" routerLink="/">PremiumPlace</a>
+
     <span class="spacer"></span>
-    <a mat-button routerLink="/places">Places</a>
-    @if (isLoggedIn()) {
-    @if (isAdmin()) {
-    <span class="admin-label">Admin</span>
-    }
-    <span>{{ username() }}</span>
-    <button mat-button (click)="logout()">Logout</button>
-    } @else {
-    <a mat-button routerLink="/auth/login">Login</a>
-    <a mat-button color="primary" routerLink="/auth/register">Register</a>
-    }
+
+    <nav class="nav-links" aria-label="Main navigation">
+        <a mat-button routerLink="/places">Places</a>
+        @if (isLoggedIn()) {
+        @if (isAdmin()) {
+        <a mat-button routerLink="/admin">Admin</a>
+        }
+        <button mat-button type="button" (click)="logout()">Logout</button>
+        } @else {
+        <a mat-button routerLink="/auth/login">Login</a>
+        <a mat-button color="primary" routerLink="/auth/register">Register</a>
+        }
+    </nav>
 </mat-toolbar>

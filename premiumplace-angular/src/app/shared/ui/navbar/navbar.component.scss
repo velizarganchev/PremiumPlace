@@ -2,8 +2,41 @@
     background: #ffffff;
     color: #111;
     border-bottom: 1px solid #e6e6e6;
+    gap: 20px;
+    min-height: 72px;
+    padding: 0 28px;
 }
 
 .spacer {
     flex: 1;
+}
+
+.brand {
+    color: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.nav-links {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+@media (max-width: 640px) {
+    .pp-toolbar {
+        gap: 10px;
+        padding: 0 14px;
+    }
+
+    .nav-links {
+        gap: 2px;
+    }
+
+    .brand {
+        font-size: 14px;
+    }
 }

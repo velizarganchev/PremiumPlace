@@ -3,7 +3,7 @@ import { Component, computed, inject } from '@angular/core';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../../../core/auth/auth.service';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-navbar',
@@ -14,6 +14,7 @@ import { RouterLink } from '@angular/router';
 })
 export class NavbarComponent {
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
   readonly user = this.auth.user;
   readonly isLoggedIn = this.auth.isLoggedIn;
@@ -22,6 +23,14 @@ export class NavbarComponent {
   readonly username = computed(() => this.user()?.username ?? '');
 
   logout() {
-    this.auth.logout().subscribe();
+    const shouldRedirectToLogin = this.router.url.startsWith('/admin');
+
+    this.auth.logout().subscribe({
+      next: () => {
+        if (shouldRedirectToLogin) {
+          this.router.navigateByUrl('/auth/login');
+        }
+      },
+    });
   }
 }
